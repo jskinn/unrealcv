@@ -24,9 +24,7 @@ void InitCaptureComponent(USceneCaptureComponent2D* CaptureComponent)
 	UGameViewportClient* GameViewportClient = World->GetGameViewport();
 	CaptureComponent->TextureTarget->InitAutoFormat(GameViewportClient->Viewport->GetSizeXY().X,  GameViewportClient->Viewport->GetSizeXY().Y); // TODO: Update this later
 	*/
-
 	CaptureComponent->RegisterComponentWithWorld(World); // What happened for this?
-	// CaptureComponent->AddToRoot(); This is not necessary since it has been attached to the Pawn.
 }
 
 
@@ -125,19 +123,18 @@ UMaterial* UGTCaptureComponent::GetMaterial(FString InModeName = TEXT(""))
 	return Material;
 }
 
-UGTCaptureComponent* UGTCaptureComponent::Create(APawn* InPawn, TArray<FString> Modes)
+UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString> Modes)
 {
 	UWorld* World = FUE4CVServer::Get().GetGameWorld();
 	UGTCaptureComponent* GTCapturer = NewObject<UGTCaptureComponent>();
 
 	GTCapturer->bIsActive = true;
 	// check(GTCapturer->IsComponentTickEnabled() == true);
-	GTCapturer->Pawn = InPawn; // This GTCapturer should depend on the Pawn and be released together with the Pawn.
 
 	// This snippet is from Engine/Source/Runtime/Engine/Private/Components/SceneComponent.cpp, AttachTo
 	FAttachmentTransformRules AttachmentRules(EAttachmentRule::KeepRelative, false);
 	ConvertAttachLocation(EAttachLocation::KeepRelativeOffset, AttachmentRules.LocationRule, AttachmentRules.RotationRule, AttachmentRules.ScaleRule);
-	GTCapturer->AttachToComponent(InPawn->GetRootComponent(), AttachmentRules);
+	GTCapturer->AttachToComponent(Parent->GetRootComponent(), AttachmentRules);
 	// GTCapturer->AddToRoot();
 	GTCapturer->RegisterComponentWithWorld(World);
 
@@ -213,11 +210,7 @@ FAsyncRecord* UGTCaptureComponent::Capture(FString Mode, FString InFilename)
 	if (CaptureComponent == nullptr)
 		return nullptr;
 
-	const FRotator PawnViewRotation = Pawn->GetViewRotation();
-	if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
-	{
-		CaptureComponent->SetWorldRotation(PawnViewRotation);
-	}
+	SyncToControlRotation();
 
 	FAsyncRecord* AsyncRecord = FAsyncRecord::Create();
 	FGTCaptureTask GTCaptureTask = FGTCaptureTask(Mode, InFilename, GFrameCounter, AsyncRecord);
@@ -232,22 +225,8 @@ void UGTCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 	// Render pixels out in the next tick. To allow time to render images out.
 
 	// Update rotation of each frame
-	// from ab237f46dc0eee40263acbacbe938312eb0dffbb:CameraComponent.cpp:232
-	check(this->Pawn); // this GTCapturer should be released, if the Pawn is deleted.
-	const APawn* OwningPawn = this->Pawn;
-	const AController* OwningController = OwningPawn ? OwningPawn->GetController() : nullptr;
-	if (OwningController && OwningController->IsLocalPlayerController())
-	{
-		const FRotator PawnViewRotation = OwningPawn->GetViewRotation();
-		for (auto Elem : CaptureComponents)
-		{
-			USceneCaptureComponent2D* CaptureComponent = Elem.Value;
-			if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
-			{
-				CaptureComponent->SetWorldRotation(PawnViewRotation);
-			}
-		}
-	}
+	SyncToControlRotation();
+	
 
 	while (!PendingTasks.IsEmpty())
 	{
@@ -284,5 +263,36 @@ void UGTCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 			}
 		}
 		Task.AsyncRecord->bIsCompleted = true;
+	}
+}
+
+/**
+ * Update the capture component orientation to match the control rotation of a controlling pawn.
+ * This lets us follow the player view when we're attached to a player.
+ * Does nothing if we're not attached to a pawn.
+ * @brief Update to follow the control rotation of a pawn
+ */
+void UGTCaptureComponent::SyncToControlRotation()
+{
+	AActor* Owner = this->GetOwner();
+	if (Owner)
+	{
+		APawn* Pawn = Cast<APawn>(Owner);
+		if (Pawn)
+		{
+			AController* OwningController = Pawn->GetController();
+			if (OwningController && OwningController->IsLocalPlayerController())
+			{
+				const FRotator PawnViewRotation = Pawn->GetViewRotation();
+				for (auto Elem : CaptureComponents)
+				{
+					USceneCaptureComponent2D* CaptureComponent = Elem.Value;
+					if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
+					{
+						CaptureComponent->SetWorldRotation(PawnViewRotation);
+					}
+				}
+			}
+		}
 	}
 }

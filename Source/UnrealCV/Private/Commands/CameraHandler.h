@@ -15,6 +15,8 @@ public:
 	{}
 	void RegisterCommands();
 
+	/** vset /camera/create */
+	FExecStatus CreateCamera(const TArray<FString>& Args);
 	/** vget /camera/location */
 	FExecStatus GetCameraLocation(const TArray<FString>& Args);
 	/** vset /camera/location */

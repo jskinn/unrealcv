@@ -32,6 +32,14 @@ void FCameraCommandHandler::RegisterCommands()
 {
 	FDispatcherDelegate Cmd;
 	FString Help;
+	
+	UE_LOG(LogUnrealCV, Warning, TEXT("Binding different camera commands, I changed the log"))
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::CreateCamera);
+	CommandDispatcher->BindCommand("vset /camera/create", Cmd, "Create a new camera, the parameters are optional");
+	
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::CreateCamera);
+	CommandDispatcher->BindCommand("vset /camera/create [float] [float] [float]", Cmd, "Create a new camera, the parameters are optional");
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraViewMode);
 	CommandDispatcher->BindCommand("vget /camera/[uint]/[str]", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
@@ -90,6 +98,21 @@ void FCameraCommandHandler::RegisterCommands()
 	// Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetBuffer);
 	// CommandDispatcher->BindCommand("vget /camera/[uint]/buffer", Cmd, "Get buffer of this camera");
 }
+
+FExecStatus FCameraCommandHandler::CreateCamera(const TArray<FString>& Args)
+{
+	FVector Location;
+	
+	if (Args.Num() >= 3)
+	{
+		float X = FCString::Atof(*Args[1]), Y = FCString::Atof(*Args[2]), Z = FCString::Atof(*Args[3]);
+		Location = FVector(X, Y, Z);
+	}
+	
+	int32 CameraId = FCaptureManager::Get().CreateCamera(Location, FUE4CVServer::Get().GetGameWorld());
+	return FExecStatus::OK(FString::FromInt(CameraId));
+}
+
 
 FExecStatus FCameraCommandHandler::GetCameraProjMatrix(const TArray<FString>& Args)
 {
