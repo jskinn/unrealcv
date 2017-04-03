@@ -39,7 +39,7 @@ void FCaptureManager::AttachGTCaptureComponentToCamera(AActor* Actor)
 int32 FCaptureManager::CreateCamera(FVector Location, UWorld* World)
 {
 	//TODO: Switch to Camera/ACaptureCamera
-	ATargetPoint* Point = World->SpawnActor<ATargetPoint>(Location, FRotator());
+	ATargetPoint* Point = World->SpawnActor<ATargetPoint>(Location, FRotator(0, 0, 0));
 	this->AttachGTCaptureComponentToCamera(Point);
 	return CaptureComponentList.Num() - 2;	// AttachGTCaptureComponent creates 2 cameras
 }

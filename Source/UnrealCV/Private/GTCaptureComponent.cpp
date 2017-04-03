@@ -126,7 +126,7 @@ UMaterial* UGTCaptureComponent::GetMaterial(FString InModeName = TEXT(""))
 UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString> Modes)
 {
 	UWorld* World = FUE4CVServer::Get().GetGameWorld();
-	UGTCaptureComponent* GTCapturer = NewObject<UGTCaptureComponent>();
+	UGTCaptureComponent* GTCapturer = NewObject<UGTCaptureComponent>(Parent);
 
 	GTCapturer->bIsActive = true;
 	// check(GTCapturer->IsComponentTickEnabled() == true);

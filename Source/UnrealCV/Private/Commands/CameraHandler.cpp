@@ -33,7 +33,7 @@ void FCameraCommandHandler::RegisterCommands()
 	FDispatcherDelegate Cmd;
 	FString Help;
 	
-	UE_LOG(LogUnrealCV, Warning, TEXT("Binding different camera commands, I changed the log"))
+	UE_LOG(LogUnrealCV, Warning, TEXT("Binding different camera commands, I changed the log message"))
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::CreateCamera);
 	CommandDispatcher->BindCommand("vset /camera/create", Cmd, "Create a new camera, the parameters are optional");
@@ -101,11 +101,23 @@ void FCameraCommandHandler::RegisterCommands()
 
 FExecStatus FCameraCommandHandler::CreateCamera(const TArray<FString>& Args)
 {
-	FVector Location;
+	FVector Location(0,0,0);
 	
 	if (Args.Num() >= 3)
 	{
 		float X = FCString::Atof(*Args[1]), Y = FCString::Atof(*Args[2]), Z = FCString::Atof(*Args[3]);
+		if (!FMath::IsFinite(X))
+		{
+			X = 0;
+		}
+		if (!FMath::IsFinite(Y))
+		{
+			Y = 0;
+		}
+		if (!FMath::IsFinite(Z))
+		{
+			Z = 0;
+		}
 		Location = FVector(X, Y, Z);
 	}
 	
@@ -127,16 +139,34 @@ FExecStatus FCameraCommandHandler::MoveTo(const TArray<FString>& Args)
 	/** The API for Character, Pawn and Actor are different */
 	if (Args.Num() == 4) // ID, X, Y, Z
 	{
-		int32 CameraId = FCString::Atoi(*Args[0]); // TODO: Add support for multiple cameras
+		int32 CameraId = FCString::Atoi(*Args[0]);
 		float X = FCString::Atof(*Args[1]), Y = FCString::Atof(*Args[2]), Z = FCString::Atof(*Args[3]);
 		FVector Location = FVector(X, Y, Z);
 
-		bool Sweep = true;
 		// if sweep is true, the object can not move through another object
 		// Check invalid location and move back a bit.
-		bool Success = FUE4CVServer::Get().GetPawn()->SetActorLocation(Location, Sweep, NULL, ETeleportType::TeleportPhysics);
-
-		return FExecStatus::OK();
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			AActor* CameraActor = Camera->GetOwner();
+			if (CameraActor)
+			{
+				bool Success = CameraActor->SetActorLocation(Location, true, nullptr, ETeleportType::TeleportPhysics);
+				if (Success)
+				{
+					return FExecStatus::OK(TEXT("Moved Camera"));
+				}
+				else {
+					return FExecStatus::Error(TEXT("Failed to move camera"));
+				}
+			}
+			else {
+				return FExecStatus::Error(TEXT("Camera owner was NULL"));
+			}
+		}
+		else {
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
 	}
 	return FExecStatus::InvalidArgument;
 }
@@ -150,13 +180,30 @@ FExecStatus FCameraCommandHandler::SetCameraLocation(const TArray<FString>& Args
 		float X = FCString::Atof(*Args[1]), Y = FCString::Atof(*Args[2]), Z = FCString::Atof(*Args[3]);
 		FVector Location = FVector(X, Y, Z);
 
-		bool Sweep = false;
 		// if sweep is true, the object can not move through another object
 		// Check invalid location and move back a bit.
-
-		bool Success = FUE4CVServer::Get().GetPawn()->SetActorLocation(Location, Sweep, NULL, ETeleportType::TeleportPhysics);
-
-		return FExecStatus::OK();
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			AActor* CameraActor = Camera->GetOwner();
+			if (CameraActor)
+			{
+				bool Success = CameraActor->SetActorLocation(Location, false, nullptr, ETeleportType::TeleportPhysics);
+				if (Success)
+				{
+					return FExecStatus::OK(TEXT("Moved Camera"));
+				}
+				else {
+					return FExecStatus::Error(TEXT("Failed to move camera"));
+				}
+			}
+			else {
+				return FExecStatus::Error(TEXT("Camera owner was NULL"));
+			}
+		}
+		else {
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
 	}
 	return FExecStatus::InvalidArgument;
 }
@@ -168,12 +215,29 @@ FExecStatus FCameraCommandHandler::SetCameraRotation(const TArray<FString>& Args
 		int32 CameraId = FCString::Atoi(*Args[0]); // TODO: Add support for multiple cameras
 		float Pitch = FCString::Atof(*Args[1]), Yaw = FCString::Atof(*Args[2]), Roll = FCString::Atof(*Args[3]);
 		FRotator Rotator = FRotator(Pitch, Yaw, Roll);
-		APawn* Pawn = FUE4CVServer::Get().GetPawn();
-		AController* Controller = Pawn->GetController();
-		Controller->ClientSetRotation(Rotator); // Teleport action
-		// SetActorRotation(Rotator);  // This is not working
-
-		return FExecStatus::OK();
+		
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			AActor* CameraActor = Camera->GetOwner();
+			if (CameraActor)
+			{
+				bool Success = CameraActor->SetActorRotation(Rotator, ETeleportType::None);
+				if (Success)
+				{
+					return FExecStatus::OK(TEXT("Rotated Camera"));
+				}
+				else {
+					return FExecStatus::Error(TEXT("Failed to rotate camera"));
+				}
+			}
+			else {
+				return FExecStatus::Error(TEXT("Camera owner was NULL"));
+			}
+		}
+		else {
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
 	}
 	return FExecStatus::InvalidArgument;
 }
@@ -199,9 +263,16 @@ FExecStatus FCameraCommandHandler::GetCameraRotation(const TArray<FString>& Args
 
 		if (!bIsMatinee)
 		{
-			int32 CameraId = FCString::Atoi(*Args[0]); // TODO: Add support for multiple cameras
-			APawn* Pawn = FUE4CVServer::Get().GetPawn();
-			CameraRotation = Pawn->GetControlRotation();
+			int32 CameraId = FCString::Atoi(*Args[0]);
+			const UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+			if (Camera)
+			{
+				CameraRotation = Camera->GetOwner()->GetActorRotation();
+			}
+			else
+			{
+				return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+			}
 		}
 
 		FString Message = FString::Printf(TEXT("%.3f %.3f %.3f"), CameraRotation.Pitch, CameraRotation.Yaw, CameraRotation.Roll);
@@ -232,9 +303,16 @@ FExecStatus FCameraCommandHandler::GetCameraLocation(const TArray<FString>& Args
 
 		if (!bIsMatinee)
 		{
-			int32 CameraId = FCString::Atoi(*Args[0]); // TODO: Add support for multiple cameras
-			APawn* Pawn = FUE4CVServer::Get().GetPawn();
-			CameraLocation = Pawn->GetActorLocation();
+			int32 CameraId = FCString::Atoi(*Args[0]);
+			const UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+			if (Camera)
+			{
+				CameraLocation = Camera->GetOwner()->GetActorLocation();
+			}
+			else
+			{
+				return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+			}
 		}
 
 		FString Message = FString::Printf(TEXT("%.3f %.3f %.3f"), CameraLocation.X, CameraLocation.Y, CameraLocation.Z);
