@@ -62,12 +62,18 @@ void SavePng(UTextureRenderTarget2D* RenderTarget, FString Filename)
 			SCOPE_CYCLE_COUNTER(STAT_GetResource);
 			RenderTargetResource = RenderTarget->GameThread_GetRenderTargetResource();
 		}
+		if (RenderTargetResource != nullptr)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ReadPixels);
 			FReadSurfaceDataFlags ReadSurfaceDataFlags;
 			ReadSurfaceDataFlags.SetLinearToGamma(false); // This is super important to disable this!
 			// Instead of using this flag, we will set the gamma to the correct value directly
 			RenderTargetResource->ReadPixels(Image, ReadSurfaceDataFlags);
+		}
+		else
+		{
+			UE_LOG(LogUnrealCV, Error, TEXT("RenderTargetResource is null, could not save PNG."));
+			return;
 		}
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ImageWrapper);

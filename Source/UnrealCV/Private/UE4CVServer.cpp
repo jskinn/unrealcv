@@ -20,11 +20,16 @@ APawn* FUE4CVServer::GetPawn()
 	UWorld* World = GetGameWorld();
 	if (CurrentWorld != World)
 	{
-		APlayerController* PlayerController = World->GetFirstPlayerController();
-		check(PlayerController);
-		Pawn = PlayerController->GetPawn();
-		check(Pawn);
 		CurrentWorld = World;
+		APlayerController* PlayerController = World->GetFirstPlayerController();
+		if (PlayerController)
+		{
+			Pawn = PlayerController->GetPawn();
+		}
+		else
+		{
+			Pawn = nullptr;
+		}
 	}
 	return Pawn;
 }
@@ -136,15 +141,21 @@ bool FUE4CVServer::InitWorld()
 	{
 		// Invoke this everytime when the GWorld changes
 		// This will happen when the game is stopped and restart in the UE4Editor
-		APlayerController* PlayerController = World->GetFirstPlayerController();
-		check(PlayerController);
-		FObjectPainter::Get().Reset(GetPawn()->GetLevel());
+		FObjectPainter::Get().Reset(World->GetCurrentLevel());
 		FObjectPainter::Get().PaintColors();
 
-		FCaptureManager::Get().AttachGTCaptureComponentToCamera(GetPawn());
+		APawn* NewWorldPawn = GetPawn();
+		if (NewWorldPawn)
+		{
+			FCaptureManager::Get().AttachGTCaptureComponentToCamera(NewWorldPawn);
+		}
 		
-		FEngineShowFlags ShowFlags = World->GetGameViewport()->EngineShowFlags;
-		FPlayerViewMode::Get().SaveGameDefault(ShowFlags);
+		UGameViewportClient* Viewport = World->GetGameViewport();
+		if (Viewport)
+		{
+			FEngineShowFlags ShowFlags = World->GetGameViewport()->EngineShowFlags;
+			FPlayerViewMode::Get().SaveGameDefault(ShowFlags);
+		}
 
 		CurrentWorld = World;
 	}
@@ -179,7 +190,7 @@ void FUE4CVServer::HandleRawMessage(const FString& InRawMessage)
 {
 	UE_LOG(LogUnrealCV, Warning, TEXT("Request: %s"), *InRawMessage);
 	// Parse Raw Message
-	FString MessageFormat = "(\\d{1,8}):(.*)";
+	FString MessageFormat = TEXT("(\\d{1,8}):(.*)");
 	FRegexPattern RegexPattern(MessageFormat);
 	FRegexMatcher Matcher(RegexPattern, InRawMessage);
 

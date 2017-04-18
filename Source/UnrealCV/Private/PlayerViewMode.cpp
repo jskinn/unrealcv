@@ -133,11 +133,7 @@ void FPlayerViewMode::DebugMode()
 void PaintObjects()
 {
 	UWorld* World = FUE4CVServer::Get().GetGameWorld();
-	APlayerController* PlayerController = World->GetFirstPlayerController();
-	check(PlayerController);
-	APawn* Pawn = PlayerController->GetPawn();
-	check(Pawn);
-	FObjectPainter::Get().Reset(Pawn->GetLevel());
+	FObjectPainter::Get().Reset(World->GetCurrentLevel());
 	FObjectPainter::Get().PaintColors();
 }
 

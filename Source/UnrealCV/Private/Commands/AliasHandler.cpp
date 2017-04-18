@@ -27,6 +27,13 @@ FExecStatus FAliasCommandHandler::VRun(const TArray<FString>& Args)
 	check(World->IsGameWorld());
 
 	APlayerController* PlayerController = World->GetFirstPlayerController();
-	PlayerController->ConsoleCommand(Cmd, true);
-	return FExecStatus::OK();
+	if (PlayerController)
+	{
+		PlayerController->ConsoleCommand(Cmd, true);
+		return FExecStatus::OK();
+	}
+	else
+	{
+		return FExecStatus::Error(TEXT("No PlayerController to run command."));
+	}
 }
