@@ -35,9 +35,12 @@ void FCameraCommandHandler::RegisterCommands()
 	
 	UE_LOG(LogUnrealCV, Warning, TEXT("Binding different camera commands, I changed the log message"))
 
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraCount);
+	CommandDispatcher->BindCommand("vget /camera/num", Cmd, "Get the number of cameras in the scene");
+
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::CreateCamera);
 	CommandDispatcher->BindCommand("vset /camera/create", Cmd, "Create a new camera, the parameters are optional");
-	
+
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::CreateCamera);
 	CommandDispatcher->BindCommand("vset /camera/create [float] [float] [float]", Cmd, "Create a new camera, the parameters are optional");
 
@@ -86,6 +89,10 @@ void FCameraCommandHandler::RegisterCommands()
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraProjMatrix);
 	Help = "Get projection matrix from camera [id]";
 	CommandDispatcher->BindCommand("vget /camera/[uint]/proj_matrix", Cmd, Help);
+	
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::SetCameraProjMatrix);
+	Help = "Set projection matrix from camera [id]";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/proj_matrix ", Cmd, Help);
 
 	Cmd = FDispatcherDelegate::CreateRaw(&FPlayerViewMode::Get(), &FPlayerViewMode::SetMode);
 	Help = "Set ViewMode to (lit, normal, depth, object_mask)";
@@ -97,6 +104,11 @@ void FCameraCommandHandler::RegisterCommands()
 
 	// Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetBuffer);
 	// CommandDispatcher->BindCommand("vget /camera/[uint]/buffer", Cmd, "Get buffer of this camera");
+}
+
+FExecStatus FCameraCommandHandler::GetCameraCount(const TArray<FString>& Args)
+{
+	return FExecStatus::OK(FString::FromInt(FCaptureManager::Get().NumCameras()));
 }
 
 FExecStatus FCameraCommandHandler::CreateCamera(const TArray<FString>& Args)
@@ -131,6 +143,22 @@ FExecStatus FCameraCommandHandler::GetCameraProjMatrix(const TArray<FString>& Ar
 	// FMatrix& ProjMatrix = FSceneView::ViewProjectionMatrix;
 	// this->Character->GetWorld()->GetGameViewport()->Viewport->
 	// this->Character
+	if (Args.Num() >= 1)
+	{
+		/*int32 CameraId = FCString::Atoi(*Args[0]);
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		USceneCaptureComponent2D* CaptureComponent = Camera->CaptureComponents.FindRef("Lit");
+		CaptureComponent->*/
+	}
+	return FExecStatus::InvalidArgument;
+}
+
+FExecStatus FCameraCommandHandler::SetCameraProjMatrix(const TArray<FString>& Args)
+{
+	// FMatrix& ProjMatrix = FSceneView::ViewProjectionMatrix;
+	// this->Character->GetWorld()->GetGameViewport()->Viewport->
+	// this->Character
+	
 	return FExecStatus::InvalidArgument;
 }
 

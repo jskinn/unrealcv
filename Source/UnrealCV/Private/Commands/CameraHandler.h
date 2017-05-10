@@ -15,6 +15,8 @@ public:
 	{}
 	void RegisterCommands();
 
+	/** vget /camera/num */
+	FExecStatus GetCameraCount(const TArray<FString>& Args);
 	/** vset /camera/create */
 	FExecStatus CreateCamera(const TArray<FString>& Args);
 	/** vget /camera/location */
@@ -39,6 +41,8 @@ public:
 
 	/** Get camera project matrix */
 	FExecStatus GetCameraProjMatrix(const TArray<FString>& Args);
+	/** Set camera project matrix */
+	FExecStatus SetCameraProjMatrix(const TArray<FString>& Args);
 
 	/** Get HDR buffer visualization */
 	FExecStatus GetBuffer(const TArray<FString>& Args);
