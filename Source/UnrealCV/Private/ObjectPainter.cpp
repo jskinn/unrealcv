@@ -83,36 +83,36 @@ FColor GetColorFromColorMap(int32 ObjectIndex)
 	return ColorMap[ObjectIndex];
 }
 
-FObjectPainter& FObjectPainter::Get()
+
+FColor GetColorForID(uint32 ObjectId)
 {
-	static FObjectPainter Singleton(NULL);
-	return Singleton;
+	// This function matches the post-processing material used, if one changes, this needs to change too.
+	float expandedId = (ObjectId + 1.0) / 257.0;
+	float R = 131.0 * expandedId;
+	float G = 217.0 * expandedId;
+	float B = 63 * expandedId;
+	// Remove the whole parts to perform modulo
+	// This winds up with 257 possible colours, 0-255 mapping to ids, and 256 being the background colour.
+	R -= (long) R;
+	G -= (long) G;
+	B -= (long) B;
+	
+	// Correct for Gamma encoding
+	FLinearColor LinearColor = FLinearColor::FromPow22Color(FColor(255 * R, 255 * G, 255 * B, 255));
+	return LinearColor.ToFColor(false);
 }
 
-FObjectPainter::FObjectPainter(ULevel* InLevel)
+bool ShouldPaintObject(AActor* Actor)
 {
-	this->Level = InLevel;
-}
-
-FExecStatus FObjectPainter::SetActorColor(FString ObjectName, FColor Color)
-{
-	if (ObjectMap.Contains(ObjectName))
+	// TODO: Some more conditions on which tags should be painted, at the moment it's at least one non-empty tag.
+	for (FName Tag : Actor->Tags)
 	{
-		AActor* Actor = ObjectMap[ObjectName];
-		if (PaintObject(Actor, Color))
+		if (Tag != "")
 		{
-			ObjectColorMap.Emplace(ObjectName, Color);
-			return FExecStatus::OK();
-		}
-		else
-		{
-			return FExecStatus::Error(FString::Printf(TEXT("Failed to paint object %s"), *ObjectName));
+			return true;
 		}
 	}
-	else
-	{
-		return FExecStatus::Error(FString::Printf(TEXT("Object %s not exist"), *ObjectName));
-	}
+	return false;
 }
 
 /** Check whether an actor can be painted with vertex color */
@@ -120,196 +120,142 @@ bool IsPaintable(AActor* Actor)
 {
 	TArray<UMeshComponent*> PaintableComponents;
 	Actor->GetComponents<UMeshComponent>(PaintableComponents);
-	if (PaintableComponents.Num() == 0)
-	{
-		return false;
-	}
-	else
-	{
-		return true;
-	}
+	return PaintableComponents.Num() == 0;
 }
 
-FExecStatus FObjectPainter::GetActorColor(FString ObjectName)
+FObjectPainter::FObjectPainter(ULevel* InLevel)
 {
-	// Make sure the object color map is initialized
-	if (ObjectColorMap.Num() == 0)
-	{
-		
-	}
-	if (ObjectColorMap.Contains(ObjectName))
-	{
-		FColor ObjectColor = ObjectColorMap[ObjectName]; // Make sure the object exist
-		FString Message = ObjectColor.ToString();
-		// FString Message = "%.3f %.3f %.3f %.3f";
-		return FExecStatus::OK(Message);
-	}
-	else
-	{
-		return FExecStatus::Error(FString::Printf(TEXT("Object %s not exist"), *ObjectName));
-	}
+	this->Reset(InLevel);
 }
 
-// This should be moved to command handler
-FExecStatus FObjectPainter::GetObjectList()
+FObjectPainter& FObjectPainter::Get()
 {
-	TArray<FString> Keys;
-	this->ObjectMap.GetKeys(Keys);
-	FString Message = "";
-	for (auto ObjectName : Keys)
-	{
-		Message += ObjectName + " ";
-	}
-	Message = Message.LeftChop(1);
-	return FExecStatus::OK(Message);
+	static FObjectPainter Singleton(nullptr);
+	return Singleton;
 }
 
-TMap<FString, AActor*>& FObjectPainter::GetObjectMap()
+void FObjectPainter::Reset(ULevel* InLevel)
 {
-	// This list needs to be generated everytime the game restarted.
-	check(Level);
-	uint32 ObjectIndex = 0;
-
-	for (AActor* Actor : Level->Actors)
+	if (InLevel != this->Level)
 	{
-		if (Actor && IsPaintable(Actor)) 
+		this->Level = InLevel;
+		if (InLevel != nullptr)
 		{
-			FString ActorLabel = Actor->GetHumanReadableName();
-			ObjectMap.Emplace(ActorLabel, Actor);
-			FColor NewColor = GetColorFromColorMap(ObjectIndex);
-			ObjectColorMap.Emplace(ActorLabel, NewColor);
-			ObjectIndex++;
-		}
-	}
-	return ObjectMap;
-}
-
-bool FObjectPainter::PaintColors()
-{
-	check(Level);
-	for (auto& Elem : ObjectColorMap)
-	{
-		FString ActorLabel = Elem.Key;
-		FColor NewColor = Elem.Value;
-		AActor* Actor = ObjectMap[ActorLabel];
-		check(PaintObject(Actor, NewColor));
-	}
-	return true;
-}
-
-/** DisplayColor is the color that the screen will show
-	If DisplayColor.R = 128, the display will show 0.5 voltage
-	To achieve this, UnrealEngine will do gamma correction.
-	The value on image will be 187.
-	https://en.wikipedia.org/wiki/Gamma_correction#Methods_to_perform_display_gamma_correction_in_computing
-*/
-bool FObjectPainter::PaintObject(AActor* Actor, const FColor& Color, bool IsColorGammaEncoded)
-{
-	if (!Actor) return false;
-
-	FColor NewColor;
-	if (IsColorGammaEncoded)
-	{
-		FLinearColor LinearColor = FLinearColor::FromPow22Color(Color);
-		NewColor = LinearColor.ToFColor(false);
-	}
-	else
-	{
-		NewColor = Color;
-	}
-
-	TArray<UMeshComponent*> PaintableComponents;
-	Actor->GetComponents<UMeshComponent>(PaintableComponents);
-
-
-	for (auto MeshComponent : PaintableComponents)
-	{
-		if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(MeshComponent))
-		{
-			UStaticMesh* StaticMesh;
-#if ENGINE_MINOR_VERSION >= 14  // Assume major version is 4
-			StaticMesh = StaticMeshComponent->GetStaticMesh(); // This is a new function introduced in 4.14
-#else
-			StaticMesh = StaticMeshComponent->StaticMesh; // This is deprecated in 4.14, add here for backward compatibility
-#endif
-			if (StaticMesh)
+			// We have a new level, we need to rebuild our object map
+			this->MappedActors.Empty();
+			uint32 IdCounter = 0;
+			for (AActor* Actor : Level->Actors)
 			{
-				uint32 NumLODLevel = StaticMesh->RenderData->LODResources.Num();
-				for (uint32 PaintingMeshLODIndex = 0; PaintingMeshLODIndex < NumLODLevel; PaintingMeshLODIndex++)
+				if (Actor && IsPaintable(Actor)) 
 				{
-					FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[PaintingMeshLODIndex];
-					FStaticMeshComponentLODInfo* InstanceMeshLODInfo = NULL;
-
-					// PaintingMeshLODIndex + 1 is the minimum requirement, enlarge if not satisfied
-					StaticMeshComponent->SetLODDataCount(PaintingMeshLODIndex + 1, StaticMeshComponent->LODData.Num());
-					InstanceMeshLODInfo = &StaticMeshComponent->LODData[PaintingMeshLODIndex];
-
-					InstanceMeshLODInfo->ReleaseOverrideVertexColorsAndBlock();
-					// Setup OverrideVertexColors
-					// if (!InstanceMeshLODInfo->OverrideVertexColors) // TODO: Check this
+					if (ShouldPaintObject(Actor))
 					{
-						InstanceMeshLODInfo->OverrideVertexColors = new FColorVertexBuffer;
-
-						FColor FillColor = FColor(255, 255, 255, 255);
-						InstanceMeshLODInfo->OverrideVertexColors->InitFromSingleColor(FColor::White, LODModel.GetNumVertices());
+						this->MappedActors.Insert(Actor, IdCounter);
+						this->PaintObject(Actor, IdCounter);
+						++IdCounter;
+						if (IdCounter >= 256)
+						{
+							// We've run out of object ids, stop.
+							UE_LOG(LogUnrealCV, Error, TEXT("Object Ids exhausted, label fewer objects."));
+							break;
+						}
 					}
-
-					uint32 NumVertices = LODModel.GetNumVertices();
-					check(InstanceMeshLODInfo->OverrideVertexColors);
-					check(NumVertices <= InstanceMeshLODInfo->OverrideVertexColors->GetNumVertices());
-					// StaticMeshComponent->CachePaintedDataIfNecessary();
-
-					for (uint32 ColorIndex = 0; ColorIndex < NumVertices; ++ColorIndex)
+					else
 					{
-						// LODModel.ColorVertexBuffer.VertexColor(ColorIndex) = NewColor;  // This is vertex level
-						// Need to initialize the vertex buffer first
-						uint32 NumOverrideVertexColors = InstanceMeshLODInfo->OverrideVertexColors->GetNumVertices();
-						uint32 NumPaintedVertices = InstanceMeshLODInfo->PaintedVertices.Num();
-						// check(NumOverrideVertexColors == NumPaintedVertices);
-						InstanceMeshLODInfo->OverrideVertexColors->VertexColor(ColorIndex) = NewColor;
-						// InstanceMeshLODInfo->PaintedVertices[ColorIndex].Color = NewColor;
+						this->UnpaintObject(Actor);
 					}
-					BeginInitResource(InstanceMeshLODInfo->OverrideVertexColors);
-					StaticMeshComponent->MarkRenderStateDirty();
-					// BeginUpdateResourceRHI(InstanceMeshLODInfo->OverrideVertexColors);
-
-
-					/*
-					// TODO: Need to check other LOD levels
-					// Use flood fill to paint mesh vertices
-					UE_LOG(LogUnrealCV, Warning, TEXT("%s:%s has %d vertices"), *Actor->GetActorLabel(), *StaticMeshComponent->GetName(), NumVertices);
-
-					if (LODModel.ColorVertexBuffer.GetNumVertices() == 0)
-					{
-						// Mesh doesn't have a color vertex buffer yet!  We'll create one now.
-						LODModel.ColorVertexBuffer.InitFromSingleColor(FColor(255, 255, 255, 255), LODModel.GetNumVertices());
-					}
-
-					*/
 				}
 			}
 		}
 	}
-	return true;
 }
 
 AActor* FObjectPainter::GetObject(FString ObjectName)
 {
 	/** Return the pointer of an object, return NULL if object not found */
-	if (ObjectMap.Contains(ObjectName))
+	// TODO: Make this more efficient, or stop relying on it. 
+	if (this->Level != nullptr)
 	{
-		return ObjectMap[ObjectName];
+		for (AActor* Actor : this->Level->Actors)
+		{
+			if (Actor->GetHumanReadableName() == ObjectName)
+			{
+				return Actor;
+			}
+		}
 	}
-	else
-	{
-		return NULL;
-	}
+	return nullptr;
 }
 
-void FObjectPainter::Reset(ULevel* InLevel)
+bool FObjectPainter::PaintObject(AActor* Actor, const uint32 ObjectId)
 {
-	this->Level = InLevel;
-	this->ObjectColorMap.Empty();
-	this->ObjectMap.Empty();
-	this->GetObjectMap();
+	if (!Actor) return false;
+
+	TArray<UMeshComponent*> PaintableComponents;
+	Actor->GetComponents<UMeshComponent>(PaintableComponents);
+
+	for (UMeshComponent* MeshComponent : PaintableComponents)
+	{
+		MeshComponent->CustomDepthStencilValue = ObjectId;
+		MeshComponent->bRenderCustomDepth = true;
+		MeshComponent->MarkRenderStateDirty();	// Clear the render state, to display the new colours
+	}
+	return true;
+}
+
+bool FObjectPainter::UnpaintObject(AActor* Actor)
+{
+	if (!Actor)
+	{
+		return false;
+	}
+	
+	TArray<UMeshComponent*> PaintableComponents;
+	Actor->GetComponents<UMeshComponent>(PaintableComponents);
+
+	for (UMeshComponent* MeshComponent : PaintableComponents)
+	{
+		MeshComponent->CustomDepthStencilValue = 0;
+		MeshComponent->bRenderCustomDepth = false;
+		MeshComponent->MarkRenderStateDirty();	// Clear the render state, to display the new colours
+	}
+	return true;
+}
+
+FExecStatus FObjectPainter::SetActorColor(FString ObjectName, FColor Color)
+{
+	return FExecStatus::Error(TEXT("Cannot set actor colours anymore."));
+}
+
+FExecStatus FObjectPainter::GetActorColor(FString ObjectName)
+{
+	FColor ObjectColor(0, 0, 0, 255);
+	
+	
+	for (uint32 ObjectId = 0; ObjectId < this->MappedActors.Num(); ++ObjectId)
+	{
+		if (this->MappedActors[ObjectId]->GetHumanReadableName() == ObjectName)
+		{
+			ObjectColor = GetColorForID(ObjectId);
+			break;
+		}
+	}
+	
+	FString Message = ObjectColor.ToString();
+	return FExecStatus::OK(ObjectColor.ToString());
+}
+
+// This should be moved to command handler
+FExecStatus FObjectPainter::GetObjectList()
+{
+	FString Message = "";
+	for (uint32 ObjectId = 0; ObjectId < this->MappedActors.Num(); ++ObjectId)
+	{
+		if (ObjectId > 0)
+		{
+			Message += ", ";
+		}
+		Message += FString::Printf(TEXT("%d: %s"), ObjectId, *this->MappedActors[ObjectId]->GetHumanReadableName());
+	}
+	return FExecStatus::OK(Message);
 }

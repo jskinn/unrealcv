@@ -129,21 +129,15 @@ void FPlayerViewMode::DebugMode()
 	ApplyPostProcess("debug");
 }
 
-// TODO: Clean up this messy function.
-void PaintObjects()
+void FPlayerViewMode::Object()
 {
 	UWorld* World = FUE4CVServer::Get().GetGameWorld();
 	FObjectPainter::Get().Reset(World->GetCurrentLevel());
-	FObjectPainter::Get().PaintColors();
-}
-
-void FPlayerViewMode::Object()
-{
-	PaintObjects();
-	UWorld* World = FUE4CVServer::Get().GetGameWorld();
+	
 	auto Viewport = World->GetGameViewport();
-	FViewMode::VertexColor(Viewport->EngineShowFlags);
-	// ApplyPostProcess("object_mask");
+	FViewMode::ObjectLabels(Viewport->EngineShowFlags);
+	
+	ApplyPostProcess("object_mask");
 }
 
 FExecStatus FPlayerViewMode::SetMode(const TArray<FString>& Args) // Check input arguments

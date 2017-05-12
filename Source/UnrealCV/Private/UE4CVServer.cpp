@@ -100,7 +100,13 @@ UWorld* FUE4CVServer::GetGameWorld()
 		}
 		else
 		{
-			UE_LOG(LogUnrealCV, Error, TEXT("Can not get PlayWorld from EditorEngine"));
+			UE_LOG(LogUnrealCV, Error, TEXT("Can not get PlayWorld from EditorEngine, %s"),
+				World != nullptr ?
+					World->IsValidLowLevel() ? 
+						World->IsGameWorld() ? TEXT("but all condidtions match") : TEXT("world is not GameWorld")
+					: TEXT("world is not valid")
+				: TEXT("world is null")
+			);
 			return nullptr;
 		}
 	}
@@ -142,7 +148,7 @@ bool FUE4CVServer::InitWorld()
 		// Invoke this everytime when the GWorld changes
 		// This will happen when the game is stopped and restart in the UE4Editor
 		FObjectPainter::Get().Reset(World->GetCurrentLevel());
-		FObjectPainter::Get().PaintColors();
+		//FObjectPainter::Get().PaintColors();
 
 		APawn* NewWorldPawn = GetPawn();
 		if (NewWorldPawn)

@@ -12,8 +12,11 @@ public:
 
 	/** Deprecated: Set game to buffer visualization mode */
 	static void BufferVisualization(FEngineShowFlags& ShowFlags);
-
+	
 	/** ViewMode for object instance mask */
+	static void ObjectLabels(FEngineShowFlags& ShowFlags);
+
+	/** ViewMode for old object labels that use vertex colours */
 	static void VertexColor(FEngineShowFlags& ShowFlags);
 
 	/** ViewMode for ground truth types implemented with PostProcess material */

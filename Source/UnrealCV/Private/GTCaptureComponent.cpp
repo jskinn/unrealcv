@@ -173,7 +173,8 @@ UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString>
 			if (Mode == "object_mask") // For object mask
 			{
 				// FViewMode::Lit(CaptureComponent->ShowFlags);
-				FViewMode::VertexColor(CaptureComponent->ShowFlags);
+				//FViewMode::VertexColor(CaptureComponent->ShowFlags);
+				FViewMode::ObjectLabels(CaptureComponent->ShowFlags);
 			}
 			else if (Mode == "wireframe") // For object mask
 			{
