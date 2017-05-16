@@ -5,102 +5,6 @@
 #include "SceneViewport.h"
 #include "Version.h"
 
-// Utility function to generate color map
-int32 GetChannelValue(uint32 Index)
-{
-	static int32 Values[256] = { 0 };
-	static bool Init = false;
-	if (!Init)
-	{
-		float Step = 256;
-		uint32 Iter = 0;
-		Values[0] = 0;
-		while (Step >= 1)
-		{
-			for (uint32 Value = Step-1; Value <= 256; Value += Step * 2)
-			{
-				Iter++;
-				Values[Iter] = Value;
-			}
-			Step /= 2;
-		}
-		Init = true;
-	}
-	if (Index >= 0 && Index <= 255)
-	{
-		return Values[Index];
-	}
-	else
-	{
-		UE_LOG(LogUnrealCV, Error, TEXT("Invalid channel index"));
-		check(false);
-		return -1;
-	}
-}
-
-void GetColors(int32 MaxVal, bool Fix1, bool Fix2, bool Fix3, TArray<FColor>& ColorMap)
-{
-	for (int32 I = 0; I <= (Fix1 ? 0 : MaxVal-1); I++)
-	{
-		for (int32 J = 0; J <= (Fix2 ? 0 : MaxVal-1); J++)
-		{
-			for (int32 K = 0; K <= (Fix3 ? 0 : MaxVal-1); K++)
-			{
-				uint8 R = GetChannelValue(Fix1 ? MaxVal : I);
-				uint8 G = GetChannelValue(Fix2 ? MaxVal : J);
-				uint8 B = GetChannelValue(Fix3 ? MaxVal : K);
-				FColor Color(R, G, B, 255);
-				ColorMap.Add(Color);
-			}
-		}
-	}
-}
-
-// TODO: support more than 1000 objects
-FColor GetColorFromColorMap(int32 ObjectIndex)
-{
-	static TArray<FColor> ColorMap;
-	int NumPerChannel = 32;
-	if (ColorMap.Num() == 0)
-	{
-		// 32 ^ 3
-		for (int32 MaxChannelIndex = 0; MaxChannelIndex < NumPerChannel; MaxChannelIndex++) // Get color map for 1000 objects
-		{
-			// GetColors(MaxChannelIndex, false, false, false, ColorMap);
-			GetColors(MaxChannelIndex, false, false, true , ColorMap);
-			GetColors(MaxChannelIndex, false, true , false, ColorMap);
-			GetColors(MaxChannelIndex, false, true , true , ColorMap);
-			GetColors(MaxChannelIndex, true , false, false, ColorMap);
-			GetColors(MaxChannelIndex, true , false, true , ColorMap);
-			GetColors(MaxChannelIndex, true , true , false, ColorMap);
-			GetColors(MaxChannelIndex, true , true , true , ColorMap);
-		}
-	}
-	if (ObjectIndex < 0 || ObjectIndex >= pow(NumPerChannel, 3))
-	{
-		UE_LOG(LogUnrealCV, Error, TEXT("Object index %d is out of the color map boundary [%d, %d]"), ObjectIndex, 0, pow(NumPerChannel, 3));
-	}
-	return ColorMap[ObjectIndex];
-}
-
-
-FColor GetColorForID(uint32 ObjectId)
-{
-	// This function matches the post-processing material used, if one changes, this needs to change too.
-	float expandedId = (ObjectId + 1.0) / 257.0;
-	float R = 131.0 * expandedId;
-	float G = 217.0 * expandedId;
-	float B = 63 * expandedId;
-	// Remove the whole parts to perform modulo
-	// This winds up with 257 possible colours, 0-255 mapping to ids, and 256 being the background colour.
-	R -= (long) R;
-	G -= (long) G;
-	B -= (long) B;
-	
-	// Correct for Gamma encoding
-	FLinearColor LinearColor = FLinearColor::FromPow22Color(FColor(255 * R, 255 * G, 255 * B, 255));
-	return LinearColor.ToFColor(false);
-}
 
 bool ShouldPaintObject(AActor* Actor)
 {
@@ -120,7 +24,7 @@ bool IsPaintable(AActor* Actor)
 {
 	TArray<UMeshComponent*> PaintableComponents;
 	Actor->GetComponents<UMeshComponent>(PaintableComponents);
-	return PaintableComponents.Num() == 0;
+	return PaintableComponents.Num() != 0;
 }
 
 FObjectPainter::FObjectPainter(ULevel* InLevel)
@@ -187,9 +91,62 @@ AActor* FObjectPainter::GetObject(FString ObjectName)
 	return nullptr;
 }
 
+FColor FObjectPainter::GetColorForID(uint32 ObjectId)
+{
+	// This function matches the post-processing material used, if one changes, this needs to change too.
+	float expandedId = (ObjectId + 1.0) / 257.0;
+	float R = 131.0 * expandedId;
+	float G = 217.0 * expandedId;
+	float B = 63.0 * expandedId;
+	// Remove the whole parts to perform modulo
+	// This winds up with 257 possible colours, 0-255 mapping to ids, and 256 being the background colour.
+	R -= (long) R;
+	G -= (long) G;
+	B -= (long) B;
+	
+	// Don't correct for Gamma encoding, this matches the actual output colour to within 1 unit (rounding)
+	return FColor(255 * R, 255 * G, 255 * B, 255);
+}
+
+/** Get a labelled actor by label id */
+AActor* FObjectPainter::GetLabeledActorById(uint32 ObjectId)
+{
+	if (ObjectId < this->MappedActors.Num())
+	{
+		return this->MappedActors[ObjectId];
+	}
+	return nullptr;
+}
+
+/** Get the actor based on the label colour */
+AActor* FObjectPainter::GetLabeledActorByColor(FColor LabelColor)
+{
+	int32 bestDist = 255 * 255 * 3;
+	uint32 bestId = 0;
+	for (uint32 ObjectId = 0; ObjectId < this->MappedActors.Num(); ++ObjectId)
+	{
+		FColor IdColor = GetColorForID(ObjectId);
+		int32 diffR = LabelColor.R - IdColor.R;
+		int32 diffG = LabelColor.G - IdColor.G;
+		int32 diffB = LabelColor.B - IdColor.B;
+		int32 dist = (diffR * diffR) + (diffG * diffG) + (diffB * diffB);
+		if (dist < bestDist)
+		{
+			bestDist = dist;
+			bestId = ObjectId;
+		}
+	}
+	return this->MappedActors[bestId];
+}
+
 bool FObjectPainter::PaintObject(AActor* Actor, const uint32 ObjectId)
 {
-	if (!Actor) return false;
+	if (!Actor)
+	{
+		UE_LOG(LogUnrealCV, Warning, TEXT("Could not paint object, it was null."));
+		return false;
+	}
+	UE_LOG(LogUnrealCV, Warning, TEXT("Painting Object %s with Id %d"), *Actor->GetHumanReadableName(), ObjectId);
 
 	TArray<UMeshComponent*> PaintableComponents;
 	Actor->GetComponents<UMeshComponent>(PaintableComponents);

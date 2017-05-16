@@ -16,6 +16,12 @@ public:
 	FExecStatus SetObjectColor(const TArray<FString>& Args);
 	/** Get the name of an object */
 	FExecStatus GetObjectName(const TArray<FString>& Args);
+	/** Get the name of an object by the label colour */
+	FExecStatus GetObjectNameFromColour(const TArray<FString>& Args);
+	/** Get the colour for a given object id */
+	FExecStatus GetLabelColourForId(const TArray<FString>& Args);
+	/** Get Object name based on the Label ID assigned to it. */
+	FExecStatus GetObjectNameByLabelId(const TArray<FString>& Args);
 
 	FExecStatus CurrentObjectHandler(const TArray<FString>& Args);
 

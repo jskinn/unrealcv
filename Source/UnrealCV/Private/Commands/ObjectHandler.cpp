@@ -28,6 +28,18 @@ void FObjectCommandHandler::RegisterCommands()
 	Help = "[debug] Get the object name";
 	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/name"), Cmd, Help);
 
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::GetObjectNameFromColour);
+	Help = "[debug] Get the object name from label colour";
+	CommandDispatcher->BindCommand(TEXT("vget /object/name [uint] [uint] [uint]"), Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::GetLabelColourForId);
+	Help = "[debug] Get the label color for a given label id";
+	CommandDispatcher->BindCommand(TEXT("vget /object/color [uint]"), Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::GetObjectNameByLabelId);
+	Help = "[debug] Get the object name by label id";
+	CommandDispatcher->BindCommand(TEXT("vget /object/name [uint]"), Cmd, Help);
+
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::GetObjectLocation);
 	Help = "Get object location [x, y, z]";
 	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/location"), Cmd, Help);
@@ -82,6 +94,41 @@ FExecStatus FObjectCommandHandler::GetObjectName(const TArray<FString>& Args)
 	if (Args.Num() == 1)
 	{
 		return FExecStatus::OK(Args[0]);
+	}
+	return FExecStatus::InvalidArgument;
+}
+
+FExecStatus FObjectCommandHandler::GetObjectNameFromColour(const TArray<FString>& Args)
+{
+	if (Args.Num() == 3)
+	{
+		uint32 R = FCString::Atoi(*Args[0]), G = FCString::Atoi(*Args[1]), B = FCString::Atoi(*Args[2]);
+		FColor LabelColour(R, G, B, 255);
+		AActor* Actor = FObjectPainter::Get().GetLabeledActorByColor(LabelColour);
+		return FExecStatus::OK(Actor->GetHumanReadableName());
+	}
+	return FExecStatus::InvalidArgument;
+}
+
+/** Get the colour for a given object id */
+FExecStatus FObjectCommandHandler::GetLabelColourForId(const TArray<FString>& Args)
+{
+	if (Args.Num() == 1)
+	{
+		uint32 Id = FCString::Atoi(*Args[0]);
+		FColor LabelColor = FObjectPainter::Get().GetColorForID(Id);
+		return FExecStatus::OK(LabelColor.ToString());
+	}
+	return FExecStatus::InvalidArgument;
+}
+
+/** Get Object name based on the Label ID assigned to it. */
+FExecStatus FObjectCommandHandler::GetObjectNameByLabelId(const TArray<FString>& Args)
+{
+	if (Args.Num() == 1)
+	{
+		AActor* Actor = FObjectPainter::Get().GetLabeledActorById(FCString::Atoi(*Args[0]));
+		return FExecStatus::OK(Actor->GetHumanReadableName());
 	}
 	return FExecStatus::InvalidArgument;
 }

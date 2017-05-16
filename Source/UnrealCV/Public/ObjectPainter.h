@@ -29,6 +29,15 @@ public:
 	/** Get a pointor to an object */
 	AActor* GetObject(FString ObjectName);
 
+	/** Get the label colour used to represent a particular id */
+	FColor GetColorForID(uint32 ObjectId);
+
+	/** Get a labelled actor by label id */
+	AActor* GetLabeledActorById(uint32 ObjectId);
+
+	/** Get the actor based on the label colour */
+	AActor* GetLabeledActorByColor(FColor LabelColor);
+
 	/** Label an object */
 	bool PaintObject(AActor* Actor, const uint32 ObjectId);
 	
@@ -43,4 +52,5 @@ public:
 
 	/** Functions to support CommandDispatcher */
 	FExecStatus SetActorColor(FString ObjectName, FColor Color);
+
 };
