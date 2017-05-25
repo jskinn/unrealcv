@@ -1,5 +1,6 @@
 #include "UnrealCVPrivate.h"
 #include "ObjectPainter.h"
+//#include "PrimitiveComponent.h"
 #include "StaticMeshResources.h"
 #include "UE4CVServer.h"
 #include "SceneViewport.h"
@@ -22,8 +23,8 @@ bool ShouldPaintObject(AActor* Actor)
 /** Check whether an actor can be painted with vertex color */
 bool IsPaintable(AActor* Actor)
 {
-	TArray<UMeshComponent*> PaintableComponents;
-	Actor->GetComponents<UMeshComponent>(PaintableComponents);
+	TArray<UPrimitiveComponent*> PaintableComponents;
+	Actor->GetComponents<UPrimitiveComponent>(PaintableComponents);
 	return PaintableComponents.Num() != 0;
 }
 
@@ -66,7 +67,7 @@ void FObjectPainter::Reset(ULevel* InLevel)
 					}
 					else
 					{
-						this->UnpaintObject(Actor);
+						//this->UnpaintObject(Actor);
 					}
 				}
 			}
@@ -148,11 +149,12 @@ bool FObjectPainter::PaintObject(AActor* Actor, const uint32 ObjectId)
 	}
 	UE_LOG(LogUnrealCV, Warning, TEXT("Painting Object %s with Id %d"), *Actor->GetHumanReadableName(), ObjectId);
 
-	TArray<UMeshComponent*> PaintableComponents;
-	Actor->GetComponents<UMeshComponent>(PaintableComponents);
+	TArray<UPrimitiveComponent*> PaintableComponents;
+	Actor->GetComponents<UPrimitiveComponent>(PaintableComponents);
 
-	for (UMeshComponent* MeshComponent : PaintableComponents)
+	for (UPrimitiveComponent* MeshComponent : PaintableComponents)
 	{
+		UE_LOG(LogUnrealCV, Warning, TEXT("Painting component %s"), *MeshComponent->GetReadableName());
 		MeshComponent->CustomDepthStencilValue = ObjectId;
 		MeshComponent->bRenderCustomDepth = true;
 		MeshComponent->MarkRenderStateDirty();	// Clear the render state, to display the new colours
@@ -166,11 +168,20 @@ bool FObjectPainter::UnpaintObject(AActor* Actor)
 	{
 		return false;
 	}
+	TArray<UPrimitiveComponent*> PaintableComponents;
+	Actor->GetComponents<UPrimitiveComponent>(PaintableComponents);
 	
-	TArray<UMeshComponent*> PaintableComponents;
-	Actor->GetComponents<UMeshComponent>(PaintableComponents);
+	if (PaintableComponents.Num() > 0 && PaintableComponents[0]->CustomDepthStencilValue != 0)
+	{
+		int32 existingId = PaintableComponents[0]->CustomDepthStencilValue;
+		if (this->MappedActors[existingId] == Actor)
+		{
+			UE_LOG(LogUnrealCV, Warning, TEXT("Will not unpaint Actor %s, it has an id assigned"), *Actor->GetHumanReadableName());
+			return false;
+		}
+	}
 
-	for (UMeshComponent* MeshComponent : PaintableComponents)
+	for (UPrimitiveComponent* MeshComponent : PaintableComponents)
 	{
 		MeshComponent->CustomDepthStencilValue = 0;
 		MeshComponent->bRenderCustomDepth = false;

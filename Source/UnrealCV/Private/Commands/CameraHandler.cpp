@@ -250,7 +250,24 @@ FExecStatus FCameraCommandHandler::SetCameraRotation(const TArray<FString>& Args
 			AActor* CameraActor = Camera->GetOwner();
 			if (CameraActor)
 			{
-				bool Success = CameraActor->SetActorRotation(Rotator, ETeleportType::None);
+				// This doesn't work because the camera is tied to the player control rotation on tick.
+				//bool Success = CameraActor->SetActorRotation(Rotator, ETeleportType::TeleportPhysics);
+				
+				bool Success = false;
+				APawn* Pawn = Cast<APawn>(CameraActor);
+				if (Pawn)
+				{
+					AController* OwningController = Pawn->GetController();
+					if (OwningController && OwningController->IsLocalPlayerController())
+					{
+						OwningController->SetControlRotation(Rotator);
+						Success = true;
+					}
+				}
+				if (!Success)
+				{
+					Success = CameraActor->SetActorRotation(Rotator, ETeleportType::TeleportPhysics);
+				}
 				if (Success)
 				{
 					return FExecStatus::OK(TEXT("Rotated Camera"));
@@ -275,8 +292,11 @@ FExecStatus FCameraCommandHandler::GetCameraRotation(const TArray<FString>& Args
 	if (Args.Num() == 1)
 	{
 		bool bIsMatinee = false;
-
 		FRotator CameraRotation;
+
+		// I think this takes too long with a large scene, cut it out.
+		// We're getting the camera actor directly anyway.
+		/*
 		ACineCameraActor* CineCameraActor = nullptr;
 		for (AActor* Actor : GWorld->GetCurrentLevel()->Actors)
 		{
@@ -287,7 +307,7 @@ FExecStatus FCameraCommandHandler::GetCameraRotation(const TArray<FString>& Args
 				CameraRotation = Actor->GetActorRotation();
 				break;
 			}
-		}
+		}*/
 
 		if (!bIsMatinee)
 		{
@@ -352,7 +372,7 @@ FExecStatus FCameraCommandHandler::GetCameraLocation(const TArray<FString>& Args
 
 FExecStatus FCameraCommandHandler::GetObjectInstanceMask(const TArray<FString>& Args)
 {
-	if (Args.Num() <= 2) // The first is camera id, the second is ViewMode
+	if (Args.Num() >= 1) // The first is camera id, the viewmode will nbe added
 	{
 		// Use command dispatcher is more universal
 		FExecStatus ExecStatus = CommandDispatcher->Exec(TEXT("vset /viewmode object_mask"));
@@ -361,21 +381,37 @@ FExecStatus FCameraCommandHandler::GetObjectInstanceMask(const TArray<FString>& 
 			return ExecStatus;
 		}
 
-		ExecStatus = GetScreenshot(Args);
-		return ExecStatus;
+		TArray<FString> ExtraArgs(Args);
+		if (ExtraArgs.Num() == 1)
+		{
+			ExtraArgs.Add(TEXT("object_mask"));
+		}
+		else {
+			ExtraArgs.Insert(TEXT("object_mask"), 2);
+		}
+		return GetCameraViewMode(ExtraArgs);
+		//ExecStatus = GetScreenshot(Args);
+		//return ExecStatus;
 	}
+	UE_LOG(LogUnrealCV, Warning, TEXT("Not enough arguments to GetObjectInstanceMask, got %d arguments"), Args.Num());
 	return FExecStatus::InvalidArgument;
 }
 
 FExecStatus FCameraCommandHandler::GetLitViewMode(const TArray<FString>& Args)
 {
-	if (Args.Num() <= 3)
+	if (Args.Num() >= 1)
 	{
 		// For this viewmode, The post-effect material needs to be explictly cleared
 		FPlayerViewMode::Get().Lit();
 
 		TArray<FString> ExtraArgs(Args);
-		ExtraArgs.Insert(TEXT("lit"), 1);
+		if (ExtraArgs.Num() == 1)
+		{
+			ExtraArgs.Add(TEXT("lit"));
+		}
+		else {
+			ExtraArgs.Insert(TEXT("lit"), 2);
+		}
 		return GetCameraViewMode(ExtraArgs);
 	}
 	return FExecStatus::InvalidArgument;
@@ -383,13 +419,13 @@ FExecStatus FCameraCommandHandler::GetLitViewMode(const TArray<FString>& Args)
 
 FExecStatus FCameraCommandHandler::GetCameraViewMode(const TArray<FString>& Args)
 {
-	if (Args.Num() <= 3) // The first is camera id, the second is ViewMode
+	if (Args.Num() >= 2) // The first is camera id, the second is ViewMode
 	{
 		int32 CameraId = FCString::Atoi(*Args[0]);
 		FString ViewMode = Args[1];
 
 		FString Filename;
-		if (Args.Num() == 3)
+		if (Args.Num() >= 3)
 		{
 			Filename = Args[2];
 		}
@@ -427,12 +463,13 @@ FExecStatus FCameraCommandHandler::GetCameraViewMode(const TArray<FString>& Args
 		return FExecStatus::AsyncQuery(FPromise(PromiseDelegate), Message);
 		// The filename here is just for message, not the fullname on the disk, because we can not know that due to sandbox issue.
 	}
+	UE_LOG(LogUnrealCV, Warning, TEXT("Not enough arguments to GetCameraViewMode, got %d arguments"), Args.Num());
 	return FExecStatus::InvalidArgument;
 }
 
 FExecStatus FCameraCommandHandler::GetScreenshot(const TArray<FString>& Args)
 {
-	if (Args.Num() <= 2)
+	if (Args.Num() >= 2)
 	{
 		int32 CameraId = FCString::Atoi(*Args[0]);
 

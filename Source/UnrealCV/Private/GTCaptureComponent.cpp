@@ -148,7 +148,7 @@ UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString>
 	{
 		// DEPRECATED_FORGAME(4.6, "CaptureComponent2D should not be accessed directly, please use GetCaptureComponent2D() function instead. CaptureComponent2D will soon be private and your code will not compile.")
 		USceneCaptureComponent2D* CaptureComponent = NewObject<USceneCaptureComponent2D>();
-		CaptureComponent->bIsActive = false; // Disable it by default for performance consideration
+		CaptureComponent->bIsActive = true; // Disable it by default for performance consideration
 		GTCapturer->CaptureComponents.Add(Mode, CaptureComponent);
 
 		// CaptureComponent needs to be attached to somewhere immediately, otherwise it will be gc-ed
@@ -172,9 +172,9 @@ UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString>
 			CaptureComponent->TextureTarget->TargetGamma = 1;
 			if (Mode == "object_mask") // For object mask
 			{
-				// FViewMode::Lit(CaptureComponent->ShowFlags);
-				//FViewMode::VertexColor(CaptureComponent->ShowFlags);
 				FViewMode::ObjectLabels(CaptureComponent->ShowFlags);
+				check(Material);
+				CaptureComponent->PostProcessSettings.AddBlendable(Material, 1);
 			}
 			else if (Mode == "wireframe") // For object mask
 			{
@@ -216,6 +216,7 @@ FAsyncRecord* UGTCaptureComponent::Capture(FString Mode, FString InFilename)
 	USceneCaptureComponent2D* CaptureComponent = CaptureComponents.FindRef(Mode);
 	if (CaptureComponent == nullptr)
 		return nullptr;
+	//CaptureComponent->bIsActive = true;
 
 	SyncToControlRotation();
 

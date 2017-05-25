@@ -101,17 +101,10 @@ void FViewMode::ObjectLabels(FEngineShowFlags& ShowFlags)
 {
 	FEngineShowFlags PreviousShowFlags(ShowFlags); // Store previous ShowFlags
 	ApplyViewMode(VMI_Lit, true, ShowFlags);
-
-	// From MeshPaintEdMode.cpp:2942
-	ShowFlags.SetMaterials(false);
 	ShowFlags.SetLighting(false);
-	ShowFlags.SetBSPTriangles(true);
 	ShowFlags.SetVertexColors(true);
-	ShowFlags.SetPostProcessing(false);
-	ShowFlags.SetHMDDistortion(false);
+	ShowFlags.SetPostProcessing(true);
 	ShowFlags.SetTonemapper(false); // This won't take effect here
-
-	GVertexColorViewMode = EVertexColorViewMode::Color;
 	SetVisibility(ShowFlags, PreviousShowFlags); // Store the visibility of the scene, such as folliage and landscape.
 }
 

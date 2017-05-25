@@ -92,7 +92,7 @@ void FPlayerViewMode::Lit()
 		return;
 	}
 	World->GetGameViewport()->EngineShowFlags = *GameShowFlags;
-	// FViewMode::Lit(Viewport->EngineShowFlags);
+	//FViewMode::Lit(Viewport->EngineShowFlags);
 }
 
 void FPlayerViewMode::Unlit()
