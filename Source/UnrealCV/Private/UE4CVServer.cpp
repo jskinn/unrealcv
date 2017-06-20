@@ -9,6 +9,7 @@
 #include "PluginHandler.h"
 #include "ActionHandler.h"
 #include "AliasHandler.h"
+#include "ProceduralHandler.h"
 #if WITH_EDITOR
 #include "UnrealEd.h"
 #endif
@@ -60,6 +61,7 @@ void FUE4CVServer::RegisterCommandHandlers()
 	CommandHandlers.Add(new FPluginCommandHandler(CommandDispatcher));
 	CommandHandlers.Add(new FActionCommandHandler(CommandDispatcher));
 	CommandHandlers.Add(new FAliasCommandHandler(CommandDispatcher));
+	CommandHandlers.Add(new FProceduralHandler(CommandDispatcher));
 	for (FCommandHandler* Handler : CommandHandlers)
 	{
 		Handler->RegisterCommands();
