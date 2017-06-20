@@ -33,11 +33,23 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override; // TODO
 
 	FAsyncRecord* Capture(FString Mode, FString Filename);
+
+	float GetFieldOfView() const;
+	void SetFieldOfView(float Fov);
+
+	void SetEnableDepthOfField(bool Enabled);
+	void SetAutofocus(bool Enabled);
+	float GetFocusDistance() const;
+	void SetFocusDistance(float distance);
+	float GetFstop() const;
+	void SetFstop(float Fstop);
+	
 private:
 
 	void SyncToControlRotation();
 
 	const bool bIsTicking = true;
+	bool bAutofocus = true;
 
 	TQueue<FGTCaptureTask, EQueueMode::Spsc> PendingTasks;
 	TMap<FString, USceneCaptureComponent2D*> CaptureComponents;

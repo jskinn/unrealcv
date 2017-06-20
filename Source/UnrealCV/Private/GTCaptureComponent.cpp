@@ -18,7 +18,10 @@ void InitCaptureComponent(USceneCaptureComponent2D* CaptureComponent)
 
 	CaptureComponent->TextureTarget = NewObject<UTextureRenderTarget2D>();
 	FServerConfig& Config = FUE4CVServer::Get().Config;
-	CaptureComponent->TextureTarget->InitAutoFormat(Config.Width, Config.Height); 
+	CaptureComponent->TextureTarget->InitAutoFormat(Config.Width, Config.Height);
+
+	/* Initialize default post-process settings */
+	
 
 	/*
 	UGameViewportClient* GameViewportClient = World->GetGameViewport();
@@ -159,6 +162,10 @@ UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString>
 		UMaterial* Material = GetMaterial(Mode);
 		if (Mode == "lit") // For rendered images
 		{
+			CaptureComponent->PostProcessSettings.bOverride_DepthOfFieldFocalDistance = true;
+			CaptureComponent->PostProcessSettings.DepthOfFieldFocalDistance = 500.0;
+			CaptureComponent->PostProcessSettings.bOverride_DepthOfFieldMethod = true;
+			CaptureComponent->PostProcessSettings.DepthOfFieldMethod = EDepthOfFieldMethod::DOFM_CircleDOF;
 			// FViewMode::Lit(CaptureComponent->ShowFlags);
 			CaptureComponent->TextureTarget->TargetGamma = GEngine->GetDisplayGamma();
 			// float DisplayGamma = SceneViewport->GetDisplayGamma();
@@ -235,6 +242,17 @@ void UGTCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 	// Update rotation of each frame
 	SyncToControlRotation();
 	
+	// Autofocus
+	if (bAutofocus)
+	{
+		UWorld* World = FUE4CVServer::Get().GetGameWorld();
+		USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+		FVector Start = LitCaptureComponent->GetComponentLocation();
+		FVector End = Start + 1000 * (LitCaptureComponent->GetComponentQuat().GetForwardVector());
+		FHitResult HitResult;
+		World->LineTraceSingleByChannel(HitResult, Start, End, ECollisionChannel::ECC_Visibility);
+		LitCaptureComponent->PostProcessSettings.DepthOfFieldFocalDistance = FVector::Dist(Start, HitResult.Location);
+	}
 
 	while (!PendingTasks.IsEmpty())
 	{
@@ -272,6 +290,67 @@ void UGTCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 		}
 		Task.AsyncRecord->bIsCompleted = true;
 	}
+}
+
+float UGTCaptureComponent::GetFieldOfView() const
+{
+	const USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+	return LitCaptureComponent->FOVAngle;
+}
+
+void UGTCaptureComponent::SetFieldOfView(float Fov)
+{
+	for (auto& Elem : this->CaptureComponents)
+	{
+		USceneCaptureComponent2D* CaptureComponent = Elem.Value;
+		CaptureComponent->FOVAngle = Fov;
+	}
+}
+
+void UGTCaptureComponent::SetEnableDepthOfField(bool Enabled)
+{
+	USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+	if (Enabled)
+	{
+		LitCaptureComponent->PostProcessSettings.DepthOfFieldMethod = EDepthOfFieldMethod::DOFM_CircleDOF;
+		LitCaptureComponent->PostProcessSettings.bOverride_DepthOfFieldScale = false;
+	}
+	else
+	{
+		LitCaptureComponent->PostProcessSettings.DepthOfFieldMethod = EDepthOfFieldMethod::DOFM_BokehDOF;
+		LitCaptureComponent->PostProcessSettings.bOverride_DepthOfFieldScale = true;
+		LitCaptureComponent->PostProcessSettings.DepthOfFieldScale = 0;
+	}
+}
+
+void UGTCaptureComponent::SetAutofocus(bool Enabled)
+{
+	bAutofocus = Enabled;
+}
+
+float UGTCaptureComponent::GetFocusDistance() const
+{
+	USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+	return LitCaptureComponent->PostProcessSettings.DepthOfFieldFocalDistance;
+}
+
+void UGTCaptureComponent::SetFocusDistance(float distance)
+{
+	bAutofocus = false;
+	USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+	LitCaptureComponent->PostProcessSettings.DepthOfFieldFocalDistance = distance;
+}
+
+float UGTCaptureComponent::GetFstop() const
+{
+	USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+	return LitCaptureComponent->PostProcessSettings.DepthOfFieldFstop;
+}
+
+void UGTCaptureComponent::SetFstop(float Fstop)
+{
+	USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+	LitCaptureComponent->PostProcessSettings.DepthOfFieldFstop = Fstop;
 }
 
 /**

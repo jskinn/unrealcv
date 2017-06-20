@@ -43,6 +43,16 @@ public:
 	FExecStatus GetCameraProjMatrix(const TArray<FString>& Args);
 	/** Set camera project matrix */
 	FExecStatus SetCameraProjMatrix(const TArray<FString>& Args);
+	/** Get and Set camera FOV */
+	FExecStatus GetCameraFOV(const TArray<FString>& Args);
+	FExecStatus SetCameraFOV(const TArray<FString>& Args);
+	/** Get and Set camera focus settings */
+	FExecStatus SetEnableCameraDOF(const TArray<FString>& Args);
+	FExecStatus SetEnableAutofocus(const TArray<FString>& Args);
+	FExecStatus GetCameraFocusDistance(const TArray<FString>& Args);
+	FExecStatus SetCameraFocusDistance(const TArray<FString>& Args);
+	FExecStatus GetCameraFstop(const TArray<FString>& Args);
+	FExecStatus SetCameraFstop(const TArray<FString>& Args);
 
 	/** Get HDR buffer visualization */
 	FExecStatus GetBuffer(const TArray<FString>& Args);

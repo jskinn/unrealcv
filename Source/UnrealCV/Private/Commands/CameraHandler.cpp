@@ -86,10 +86,42 @@ void FCameraCommandHandler::RegisterCommands()
 	Help = "Set rotation [pitch, yaw, roll] of camera [id]";
 	CommandDispatcher->BindCommand("vset /camera/[uint]/rotation [float] [float] [float]", Cmd, Help);
 
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraFOV);
+	Help = "Get field of view for camera [id]";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/fov", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::SetCameraFOV);
+	Help = "Set field of view [float] for camera [id]";
+	CommandDispatcher->BindCommand("vset /camera/[uint]/fov [float]", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::SetEnableCameraDOF);
+	Help = "Enable or disable depth of field for camera [id]";
+	CommandDispatcher->BindCommand("vset /camera/[uint]/enable-dof [uint]", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::SetEnableAutofocus);
+	Help = "Enable or disable autofocus for camera [id]";
+	CommandDispatcher->BindCommand("vset /camera/[uint]/autofocus [uint]", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraFocusDistance);
+	Help = "Get focus distance for camera [id]";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/focus-distance", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::SetCameraFocusDistance);
+	Help = "Set focus distance [float] for camera [id]";
+	CommandDispatcher->BindCommand("vset /camera/[uint]/focus-distance [float]", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraFstop);
+	Help = "Get fstop for camera [id]";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/fstop", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::SetCameraFstop);
+	Help = "Set fstop [float] for camera [id]";
+	CommandDispatcher->BindCommand("vset /camera/[uint]/fstop [float]", Cmd, Help);
+
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraProjMatrix);
 	Help = "Get projection matrix from camera [id]";
 	CommandDispatcher->BindCommand("vget /camera/[uint]/proj_matrix", Cmd, Help);
-	
+
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::SetCameraProjMatrix);
 	Help = "Set projection matrix from camera [id]";
 	CommandDispatcher->BindCommand("vget /camera/[uint]/proj_matrix ", Cmd, Help);
@@ -510,4 +542,171 @@ FExecStatus FCameraCommandHandler::GetBuffer(const TArray<FString>& Args)
 	// FSceneViewport* SceneViewport = this->GetWorld()->GetGameViewport()->GetGameViewport();
 	// SceneViewport->TakeHighResScreenShot();
 	return FExecStatus::OK();
+}
+
+
+FExecStatus FCameraCommandHandler::GetCameraFOV(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 1)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		const UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			return FExecStatus::OK(FString::Printf(TEXT("%.3f"), Camera->GetFieldOfView()));
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+FExecStatus FCameraCommandHandler::SetCameraFOV(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 2)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			Camera->SetFieldOfView(FCString::Atof(*Args[1]));
+			return FExecStatus::OK("Set camera FOV");
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+/** Get and Set camera focus settings */
+FExecStatus FCameraCommandHandler::SetEnableCameraDOF(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 2)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			if (FCString::Atoi(*Args[1]) == 0)
+			{
+				Camera->SetEnableDepthOfField(false);
+				return FExecStatus::OK("Disabled camera Depth of Field");
+			}
+			else
+			{
+				Camera->SetEnableDepthOfField(true);
+				return FExecStatus::OK("Enabled camera Depth of Field");
+			}
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+FExecStatus FCameraCommandHandler::SetEnableAutofocus(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 2)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			if (FCString::Atoi(*Args[1]) == 0)
+			{
+				Camera->SetAutofocus(false);
+				return FExecStatus::OK("Disabled camera autofocus");
+			}
+			else
+			{
+				Camera->SetAutofocus(true);
+				return FExecStatus::OK("Enabled camera autofocus");
+			}
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+FExecStatus FCameraCommandHandler::GetCameraFocusDistance(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 1)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		const UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			return FExecStatus::OK(FString::Printf(TEXT("%.3f"), Camera->GetFocusDistance()));
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+FExecStatus FCameraCommandHandler::SetCameraFocusDistance(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 2)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			Camera->SetFocusDistance(FCString::Atof(*Args[1]));
+			return FExecStatus::OK("Set camera focus distance");
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+FExecStatus FCameraCommandHandler::GetCameraFstop(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 1)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		const UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			return FExecStatus::OK(FString::Printf(TEXT("%.3f"), Camera->GetFieldOfView()));
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+FExecStatus FCameraCommandHandler::SetCameraFstop(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 2)
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			Camera->SetFstop(FCString::Atof(*Args[1]));
+			return FExecStatus::OK("Set camera Fstop");
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::Error("Number of arguments incorrect");
 }
