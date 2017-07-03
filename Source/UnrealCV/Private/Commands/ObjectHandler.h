@@ -36,4 +36,7 @@ public:
 
 	/** Set object rotation */
 	FExecStatus SetObjectRotation(const TArray<FString>& Args);
+
+	/** Get object labels */
+	FExecStatus GetObjectLabels(const TArray<FString>& Args);
 };
