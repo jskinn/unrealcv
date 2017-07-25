@@ -55,6 +55,10 @@ void FObjectCommandHandler::RegisterCommands()
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::SetObjectRotation);
 	Help = "Set object rotation [pitch, yaw, roll]";
 	CommandDispatcher->BindCommand(TEXT("vset /object/[str]/rotation [float] [float] [float]"), Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::GetObjectLabels);
+	Help = "Get object labels [x, y, z]";
+	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/labels"), Cmd, Help);
 }
 
 FExecStatus FObjectCommandHandler::GetObjects(const TArray<FString>& Args)
@@ -270,5 +274,31 @@ FExecStatus FObjectCommandHandler::SetObjectRotation(const TArray<FString>& Args
 		bool Success = Object->SetActorRotation(Rotator);
 		return FExecStatus::OK();
 	}
+	return FExecStatus::InvalidArgument;
+}
+
+FExecStatus FObjectCommandHandler::GetObjectLabels(const TArray<FString>& Args)
+{
+	if (Args.Num() == 1)
+	{
+		FString ObjectName = Args[0];
+		AActor* Object = FObjectPainter::Get().GetObject(ObjectName);
+		if (Object == NULL)
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Can not find object %s"), *ObjectName));
+		}
+
+		FString Tags = "";
+		for (FName Tag : Object->Tags)
+		{
+			if (Tags != "")
+			{
+				Tags += ",";
+			}
+			Tags += Tag.ToString();
+		}
+		return FExecStatus::OK(Tags);
+	}
+
 	return FExecStatus::InvalidArgument;
 }
