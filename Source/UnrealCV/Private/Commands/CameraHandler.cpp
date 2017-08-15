@@ -34,8 +34,6 @@ void FCameraCommandHandler::RegisterCommands()
 {
 	FDispatcherDelegate Cmd;
 	FString Help;
-	
-	UE_LOG(LogUnrealCV, Warning, TEXT("Binding different camera commands, I changed the log message"))
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraCount);
 	CommandDispatcher->BindCommand("vget /camera/num", Cmd, "Get the number of cameras in the scene");
@@ -519,7 +517,7 @@ FExecStatus FCameraCommandHandler::GetCameraViewMode(const TArray<FString>& Args
 			}
 		});
 		FString Message = FString::Printf(TEXT("File will be saved to %s"), *Filename);
-		return FExecStatus::AsyncQuery(FPromise(PromiseDelegate), Message);
+		return FExecStatus::AsyncQuery(FPromise(PromiseDelegate));
 		// The filename here is just for message, not the fullname on the disk, because we can not know that due to sandbox issue.
 	}
 	return FExecStatus::InvalidArgument;
@@ -620,6 +618,7 @@ FExecStatus FCameraCommandHandler::GetNpyBinary(const TArray<FString>& Args, con
 
 	TArray<uint8> ImgData = GTCapturer->CaptureNpy(ViewMode);
 	return FExecStatus::Binary(ImgData);
+}
 
 FExecStatus FCameraCommandHandler::GetCameraFOV(const TArray<FString>& Args)
 {

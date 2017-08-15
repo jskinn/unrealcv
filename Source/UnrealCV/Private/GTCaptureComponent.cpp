@@ -2,6 +2,7 @@
 #include "GTCaptureComponent.h"
 #include "ImageWrapper.h"
 #include "ViewMode.h"
+#include "cnpy.h"
 
 DECLARE_CYCLE_STAT(TEXT("SaveExr"), STAT_SaveExr, STATGROUP_UnrealCV);
 DECLARE_CYCLE_STAT(TEXT("SavePng"), STAT_SavePng, STATGROUP_UnrealCV);
@@ -100,7 +101,7 @@ UMaterial* UGTCaptureComponent::GetMaterial(FString InModeName = TEXT(""))
 		MaterialPathMap->Add(TEXT("depth"), TEXT("Material'/UnrealCV/SceneDepthWorldUnits.SceneDepthWorldUnits'"));
 		MaterialPathMap->Add(TEXT("vis_depth"), TEXT("Material'/UnrealCV/SceneDepth.SceneDepth'"));
 		MaterialPathMap->Add(TEXT("debug"), TEXT("Material'/UnrealCV/debug.debug'"));
-		MaterialPathMap->Add(TEXT("object_mask"), TEXT("Material'/UnrealCV/ObjectMask.ObjectMask'"));
+		//MaterialPathMap->Add(TEXT("object_mask"), TEXT("Material'/UnrealCV/ObjectMask.ObjectMask'"));
 		MaterialPathMap->Add(TEXT("normal"), TEXT("Material'/UnrealCV/WorldNormal.WorldNormal'"));
 
 		FString OpaqueMaterialName = "Material'/UnrealCV/OpaqueMaterial.OpaqueMaterial'";
@@ -183,9 +184,10 @@ UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString>
 			CaptureComponent->TextureTarget->TargetGamma = 1;
 			if (Mode == "object_mask") // For object mask
 			{
-				FViewMode::ObjectLabels(CaptureComponent->ShowFlags);
+				/*FViewMode::ObjectLabels(CaptureComponent->ShowFlags);
 				check(Material);
-				CaptureComponent->PostProcessSettings.AddBlendable(Material, 1);
+				CaptureComponent->PostProcessSettings.AddBlendable(Material, 1);*/
+				FViewMode::VertexColor(CaptureComponent->ShowFlags);
 			}
 			else if (Mode == "wireframe") // For object mask
 			{
@@ -248,12 +250,8 @@ TArray<uint8> UGTCaptureComponent::CapturePng(FString Mode)
 	if (CaptureComponent == nullptr)
 		return ImgData;
 
-	// Attach this to something, for example, a real camera
-	const FRotator PawnViewRotation = Pawn->GetViewRotation();
-	if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
-	{
-		CaptureComponent->SetWorldRotation(PawnViewRotation);
-	}
+	//Make sure our orientation is correct
+	this->SyncToControlRotation();
 
 	UTextureRenderTarget2D* RenderTarget = CaptureComponent->TextureTarget;
 	static IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
@@ -345,12 +343,8 @@ TArray<uint8> UGTCaptureComponent::CaptureNpy(FString Mode)
 	if (CaptureComponent == nullptr)
 		return NpyData;
 
-	// Attach this to something, for example, a real camera
-	const FRotator PawnViewRotation = Pawn->GetViewRotation();
-	if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
-	{
-		CaptureComponent->SetWorldRotation(PawnViewRotation);
-	}
+	//Make sure our orientation is correct
+	this->SyncToControlRotation();
 
 	UTextureRenderTarget2D* RenderTarget = CaptureComponent->TextureTarget;
 	int32 Width = RenderTarget->SizeX, Height = RenderTarget->SizeY;

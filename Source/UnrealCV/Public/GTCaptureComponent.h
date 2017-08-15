@@ -23,10 +23,9 @@ class UNREALCV_API UGTCaptureComponent : public USceneComponent // , public FTic
 	GENERATED_BODY()
 private:
 	UGTCaptureComponent();
-	APawn* Pawn;
 
 public:
-	static UGTCaptureComponent* Create(APawn* Pawn, TArray<FString> Modes);
+	static UGTCaptureComponent* Create(AActor* Parent, TArray<FString> Modes);
 
 	static UMaterial* GetMaterial(FString ModeName);
 

@@ -132,12 +132,9 @@ void FPlayerViewMode::DebugMode()
 void FPlayerViewMode::Object()
 {
 	UWorld* World = FUE4CVServer::Get().GetGameWorld();
-	FObjectPainter::Get().Reset(World->GetCurrentLevel());
-	
 	auto Viewport = World->GetGameViewport();
-	FViewMode::ObjectLabels(Viewport->EngineShowFlags);
-	
-	ApplyPostProcess("object_mask");
+	FViewMode::VertexColor(Viewport->EngineShowFlags);
+	// ApplyPostProcess("object_mask");
 }
 
 FExecStatus FPlayerViewMode::SetMode(const TArray<FString>& Args) // Check input arguments
