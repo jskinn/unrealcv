@@ -30,15 +30,6 @@ public:
 	/** Get a pointor to an object */
 	AActor* GetObject(FString ObjectName);
 
-	/** Get the label colour used to represent a particular id */
-	FColor GetColorForID(uint32 ObjectId);
-
-	/** Get a labelled actor by label id */
-	AActor* GetLabeledActorById(uint32 ObjectId);
-
-	/** Get the actor based on the label colour */
-	AActor* GetLabeledActorByColor(FColor LabelColor);
-
 	/** Return a list of actors in the level */
 	FExecStatus GetObjectList();
 
@@ -47,4 +38,7 @@ public:
 
 	/** Functions to support CommandDispatcher */
 	FExecStatus SetActorColor(FString ActorId, FColor Color);
+
+	/** Get the actor based on the label colour */
+	AActor* GetActorByColor(FColor LabelColor);
 };

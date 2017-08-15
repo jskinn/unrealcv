@@ -12,6 +12,20 @@ FObjectPainter& FObjectPainter::Get()
 	return Singleton;
 }
 
+AActor* FObjectPainter::GetActorByColor(FColor LabelColor)
+{
+	FString ActorId = "";
+	for (auto& Elem : Id2Color)
+	{
+		if (Elem.Value == LabelColor)
+		{
+			ActorId = Elem.Key;
+			break;
+		}
+	}
+	return GetObject(ActorId);
+}
+
 FExecStatus FObjectPainter::SetActorColor(FString ActorId, FColor Color)
 {
 	if (Id2Actor.Contains(ActorId))
