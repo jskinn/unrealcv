@@ -10,21 +10,22 @@ class UNREALCV_API FObjectPainter
 private:
 	/** The level this ObjectPainter associated with */
 	ULevel* Level;
-	FObjectPainter(ULevel* InLevel);
+
+	FObjectPainter() {}
 	/** The assigned color for each object */
-	TMap<FString, FColor> ObjectColorMap;
+	TMap<FString, FColor> Id2Color;
 	/** A list of paintable objects */
-	TMap<FString, AActor*> ObjectMap;
-	
-	TArray<AActor*> MappedActors;
+	TMap<FString, AActor*> Id2Actor;
 
 public:
-
 	/** Return the singleton of FObjectPainter */
 	static FObjectPainter& Get();
 
 	/** Reset this to uninitialized state */
 	void Reset(ULevel* InLevel);
+
+	/** Vertex paint one object with Flood-Fill */
+	bool PaintObject(AActor* Actor, const FColor& Color, bool IsColorGammaEncoded = true);
 
 	/** Get a pointor to an object */
 	AActor* GetObject(FString ObjectName);
@@ -38,19 +39,12 @@ public:
 	/** Get the actor based on the label colour */
 	AActor* GetLabeledActorByColor(FColor LabelColor);
 
-	/** Label an object */
-	bool PaintObject(AActor* Actor, const uint32 ObjectId);
-	
-	/** Remove annotations from the object that mean it won't be labelled */
-	bool UnpaintObject(AActor* Actor);
-
-	/** Return a list of labeled actors in the level */
+	/** Return a list of actors in the level */
 	FExecStatus GetObjectList();
 
 	/** Get the object color */
-	FExecStatus GetActorColor(FString ObjectName);
+	FExecStatus GetActorColor(FString ActorId);
 
 	/** Functions to support CommandDispatcher */
-	FExecStatus SetActorColor(FString ObjectName, FColor Color);
-
+	FExecStatus SetActorColor(FString ActorId, FColor Color);
 };

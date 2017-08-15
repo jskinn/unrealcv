@@ -21,16 +21,11 @@ APawn* FUE4CVServer::GetPawn()
 	UWorld* World = GetGameWorld();
 	if (CurrentWorld != World)
 	{
-		CurrentWorld = World;
 		APlayerController* PlayerController = World->GetFirstPlayerController();
-		if (PlayerController)
-		{
-			Pawn = PlayerController->GetPawn();
-		}
-		else
-		{
-			Pawn = nullptr;
-		}
+		check(PlayerController);
+		Pawn = PlayerController->GetPawn();
+		check(Pawn);
+		CurrentWorld = World;
 	}
 	return Pawn;
 }
@@ -147,23 +142,18 @@ bool FUE4CVServer::InitWorld()
 	static UWorld *CurrentWorld = nullptr;
 	if (CurrentWorld != World)
 	{
-		// Invoke this everytime when the GWorld changes
+		// Invoke this everytime when the World changes
 		// This will happen when the game is stopped and restart in the UE4Editor
-		FObjectPainter::Get().Reset(World->GetCurrentLevel());
-		//FObjectPainter::Get().PaintColors();
+		APlayerController* PlayerController = World->GetFirstPlayerController();
+		check(PlayerController);
 
-		APawn* NewWorldPawn = GetPawn();
-		if (NewWorldPawn)
-		{
-			FCaptureManager::Get().AttachGTCaptureComponentToCamera(NewWorldPawn);
-		}
+		FObjectPainter::Get().Reset(World->GetCurrentLevel());
+		FCaptureManager::Get().AttachGTCaptureComponentToCamera(GetPawn()); // TODO: Make this configurable in the editor
+
+		FCaptureManager::Get().AttachGTCaptureComponentToCamera(GetPawn());
 		
-		UGameViewportClient* Viewport = World->GetGameViewport();
-		if (Viewport)
-		{
-			FEngineShowFlags ShowFlags = World->GetGameViewport()->EngineShowFlags;
-			FPlayerViewMode::Get().SaveGameDefault(ShowFlags);
-		}
+		FEngineShowFlags ShowFlags = World->GetGameViewport()->EngineShowFlags;
+		FPlayerViewMode::Get().SaveGameDefault(ShowFlags);
 
 		CurrentWorld = World;
 	}
@@ -186,8 +176,13 @@ void FUE4CVServer::ProcessPendingRequest()
 		CallbackDelegate.BindLambda([this, RequestId](FExecStatus ExecStatus)
 		{
 			UE_LOG(LogUnrealCV, Warning, TEXT("Response: %s"), *ExecStatus.GetMessage());
-			FString ReplyRawMessage = FString::Printf(TEXT("%d:%s"), RequestId, *ExecStatus.GetMessage());
-			SendClientMessage(ReplyRawMessage);
+			
+			FString Header = FString::Printf(TEXT("%d:"), RequestId);
+			TArray<uint8> ReplyData;
+			FExecStatus::BinaryArrayFromString(Header, ReplyData);
+
+			ReplyData += ExecStatus.GetData();
+			NetworkManager->SendData(ReplyData);
 		});
 		CommandDispatcher->ExecAsync(Request.Message, CallbackDelegate);
 	}
@@ -198,7 +193,7 @@ void FUE4CVServer::HandleRawMessage(const FString& InRawMessage)
 {
 	UE_LOG(LogUnrealCV, Warning, TEXT("Request: %s"), *InRawMessage);
 	// Parse Raw Message
-	FString MessageFormat = TEXT("(\\d{1,8}):(.*)");
+	FString MessageFormat = "(\\d{1,8}):(.*)";
 	FRegexPattern RegexPattern(MessageFormat);
 	FRegexMatcher Matcher(RegexPattern, InRawMessage);
 

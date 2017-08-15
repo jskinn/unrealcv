@@ -132,6 +132,9 @@ UMaterial* UGTCaptureComponent::GetMaterial(FString InModeName = TEXT(""))
 	return Material;
 }
 
+/**
+Attach a GTCaptureComponent to a pawn
+ */
 UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString> Modes)
 {
 	UWorld* World = FUE4CVServer::Get().GetGameWorld();
@@ -146,12 +149,13 @@ UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString>
 	GTCapturer->AttachToComponent(Parent->GetRootComponent(), AttachmentRules);
 	// GTCapturer->AddToRoot();
 	GTCapturer->RegisterComponentWithWorld(World);
+	GTCapturer->SetTickableWhenPaused(true);
 
 	for (FString Mode : Modes)
 	{
 		// DEPRECATED_FORGAME(4.6, "CaptureComponent2D should not be accessed directly, please use GetCaptureComponent2D() function instead. CaptureComponent2D will soon be private and your code will not compile.")
 		USceneCaptureComponent2D* CaptureComponent = NewObject<USceneCaptureComponent2D>();
-		CaptureComponent->bIsActive = true; // Disable it by default for performance consideration
+		CaptureComponent->bIsActive = false; // Disable it by default for performance consideration
 		GTCapturer->CaptureComponents.Add(Mode, CaptureComponent);
 
 		// CaptureComponent needs to be attached to somewhere immediately, otherwise it will be gc-ed
@@ -223,7 +227,7 @@ FAsyncRecord* UGTCaptureComponent::Capture(FString Mode, FString InFilename)
 	USceneCaptureComponent2D* CaptureComponent = CaptureComponents.FindRef(Mode);
 	if (CaptureComponent == nullptr)
 		return nullptr;
-	//CaptureComponent->bIsActive = true;
+	CaptureComponent->bIsActive = true;
 
 	SyncToControlRotation();
 
@@ -233,6 +237,137 @@ FAsyncRecord* UGTCaptureComponent::Capture(FString Mode, FString InFilename)
 
 	return AsyncRecord;
 }
+
+TArray<uint8> UGTCaptureComponent::CapturePng(FString Mode)
+{
+	// Flush location and rotation
+	check(CaptureComponents.Num() != 0);
+	USceneCaptureComponent2D* CaptureComponent = CaptureComponents.FindRef(Mode);
+
+	TArray<uint8> ImgData;
+	if (CaptureComponent == nullptr)
+		return ImgData;
+
+	// Attach this to something, for example, a real camera
+	const FRotator PawnViewRotation = Pawn->GetViewRotation();
+	if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
+	{
+		CaptureComponent->SetWorldRotation(PawnViewRotation);
+	}
+
+	UTextureRenderTarget2D* RenderTarget = CaptureComponent->TextureTarget;
+	static IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
+	static IImageWrapperPtr ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
+	int32 Width = RenderTarget->SizeX, Height = RenderTarget->SizeY;
+	TArray<FColor> Image;
+	FTextureRenderTargetResource* RenderTargetResource;
+	Image.AddZeroed(Width * Height);
+	RenderTargetResource = RenderTarget->GameThread_GetRenderTargetResource();
+
+	FReadSurfaceDataFlags ReadSurfaceDataFlags;
+	ReadSurfaceDataFlags.SetLinearToGamma(false); // This is super important to disable this!
+														  // Instead of using this flag, we will set the gamma to the correct value directly
+	RenderTargetResource->ReadPixels(Image, ReadSurfaceDataFlags);
+	ImageWrapper->SetRaw(Image.GetData(), Image.GetAllocatedSize(), Width, Height, ERGBFormat::BGRA, 8);
+	ImgData = ImageWrapper->GetCompressed(ImageCompression::Uncompressed);
+
+	return ImgData;
+}
+
+
+TArray<uint8> NpySerialization(TArray<FFloat16Color> ImageData, int32 Width, int32 Height, int32 Channel)
+{
+	float *TypePointer = nullptr; // Only used for determing the type
+
+	std::vector<int> Shape;
+	Shape.push_back(Height);
+	Shape.push_back(Width);
+	if (Channel != 1) Shape.push_back(Channel);
+
+	std::vector<char> NpyHeader = cnpy::create_npy_header(TypePointer, Shape);
+
+	// Append the actual data
+	// FIXME: A slow implementation to convert TArray<FFloat16Color> to binary.
+	/* A small size test
+	std::vector<char> NpyData;
+	for (int i = 0; i < 3 * 3 * 3; i++)
+	{
+		NpyData.push_back(i);
+	}
+	*/
+	// std::vector<char> NpyData;
+	std::vector<float> FloatData;
+	float DebugMin = 10e10, DebugMax = 0.0;
+
+	for (int i = 0; i < ImageData.Num(); i++)
+	{
+		if (Channel == 1)
+		{
+			float v = ImageData[i].R;
+			FloatData.push_back(ImageData[i].R);
+			// debug: Check the range of data
+			if (v < DebugMin) DebugMin = v;
+			if (v > DebugMax) DebugMax = v;
+		}
+		if (Channel == 3)
+		{
+			FloatData.push_back(ImageData[i].R);
+			FloatData.push_back(ImageData[i].G);
+			FloatData.push_back(ImageData[i].B); // TODO: Is this a correct order in numpy?
+		}
+	}
+	check(FloatData.size() == Width * Height * Channel);
+	// Convert to binary array
+	const unsigned char* bytes = reinterpret_cast<const unsigned char*>(&FloatData[0]);
+
+	// https://stackoverflow.com/questions/22629728/what-is-the-difference-between-char-and-unsigned-char
+	// https://stackoverflow.com/questions/11022099/convert-float-vector-to-byte-vector-and-back
+	std::vector<unsigned char> NpyData(bytes, bytes + sizeof(float) * FloatData.size());
+
+	NpyHeader.insert(NpyHeader.end(), NpyData.begin(), NpyData.end());
+
+	// FIXME: Find a more efficient implementation
+	TArray<uint8> BinaryData;
+	for (char Element : NpyHeader)
+	{
+		BinaryData.Add(Element);
+	}
+	return BinaryData;
+}
+
+TArray<uint8> UGTCaptureComponent::CaptureNpy(FString Mode)
+{
+	// Flush location and rotation
+	check(CaptureComponents.Num() != 0);
+	USceneCaptureComponent2D* CaptureComponent = CaptureComponents.FindRef(Mode);
+
+	TArray<uint8> NpyData;
+	if (CaptureComponent == nullptr)
+		return NpyData;
+
+	// Attach this to something, for example, a real camera
+	const FRotator PawnViewRotation = Pawn->GetViewRotation();
+	if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
+	{
+		CaptureComponent->SetWorldRotation(PawnViewRotation);
+	}
+
+	UTextureRenderTarget2D* RenderTarget = CaptureComponent->TextureTarget;
+	int32 Width = RenderTarget->SizeX, Height = RenderTarget->SizeY;
+	TArray<FFloat16Color> ImageData;
+	FTextureRenderTargetResource* RenderTargetResource;
+	ImageData.AddZeroed(Width * Height);
+	RenderTargetResource = RenderTarget->GameThread_GetRenderTargetResource();
+	RenderTargetResource->ReadFloat16Pixels(ImageData);
+
+	// Check the byte order of data
+	// Compress image data to npy array
+	// Generate a header for the numpy array
+	NpyData = NpySerialization(ImageData, Width, Height, 1);
+
+	return NpyData;
+}
+
 
 void UGTCaptureComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 // void UGTCaptureComponent::Tick(float DeltaTime) // This tick function should be called by the scene instead of been

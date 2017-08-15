@@ -23,16 +23,24 @@ class UNREALCV_API UGTCaptureComponent : public USceneComponent // , public FTic
 	GENERATED_BODY()
 private:
 	UGTCaptureComponent();
+	APawn* Pawn;
 
 public:
-	static UGTCaptureComponent* Create(AActor* Parent, TArray<FString> Modes);
+	static UGTCaptureComponent* Create(APawn* Pawn, TArray<FString> Modes);
 
 	static UMaterial* GetMaterial(FString ModeName);
 
 	// virtual void Tick(float DeltaTime) override; // TODO
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override; // TODO
 
+	/** Save image to a file */
 	FAsyncRecord* Capture(FString Mode, FString Filename);
+	
+	/** Read binary data in png format */
+	TArray<uint8> CapturePng(FString Mode);
+
+	/** Read binary data in uncompressed numpy array */
+	TArray<uint8> CaptureNpy(FString Mode);
 
 	float GetFieldOfView() const;
 	void SetFieldOfView(float Fov);

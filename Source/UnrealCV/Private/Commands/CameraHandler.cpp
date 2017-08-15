@@ -9,6 +9,8 @@
 #include "UE4CVServer.h"
 #include "CaptureManager.h"
 #include "CineCameraActor.h"
+#include "ObjectPainter.h"
+#include "ScreenCapture.h"
 
 FString GetDiskFilename(FString Filename)
 {
@@ -45,25 +47,27 @@ void FCameraCommandHandler::RegisterCommands()
 	CommandDispatcher->BindCommand("vset /camera/create [float] [float] [float]", Cmd, "Create a new camera, the parameters are optional");
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraViewMode);
-	CommandDispatcher->BindCommand("vget /camera/[uint]/[str]", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
+	CommandDispatcher->BindCommand("vget /camera/[uint]/[str]", Cmd, "Get snapshot from camera, the third parameter is optional");
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraViewMode);
-	CommandDispatcher->BindCommand("vget /camera/[uint]/[str] [str]", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
+	CommandDispatcher->BindCommand("vget /camera/[uint]/[str] [str]", Cmd, "Get snapshot from camera, the third parameter is optional");
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetLitViewMode);
-	CommandDispatcher->BindCommand("vget /camera/[uint]/lit", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
+	CommandDispatcher->BindCommand("vget /camera/[uint]/lit", Cmd, "Get snapshot from camera, the third parameter is optional");
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetLitViewMode);
-	CommandDispatcher->BindCommand("vget /camera/[uint]/lit [str]", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
+	CommandDispatcher->BindCommand("vget /camera/[uint]/lit [str]", Cmd, "Get snapshot from camera, the third parameter is optional");
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetObjectInstanceMask);
-	CommandDispatcher->BindCommand("vget /camera/[uint]/object_mask", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
+	CommandDispatcher->BindCommand("vget /camera/[uint]/object_mask", Cmd, "Get snapshot from camera, the third parameter is optional");
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetObjectInstanceMask);
-	CommandDispatcher->BindCommand("vget /camera/[uint]/object_mask [str]", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
+	Help = "Get object mask from camera";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/object_mask [str]", Cmd, Help);
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetScreenshot);
-	CommandDispatcher->BindCommand("vget /camera/[uint]/screenshot", Cmd, "Get snapshot from camera, the third parameter is optional"); // Take a screenshot and return filename
+	Help = "Get snapshot from camera";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/screenshot", Cmd, Help);
 
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraLocation);
 	Help = "Get camera location [x, y, z]";
@@ -128,14 +132,39 @@ void FCameraCommandHandler::RegisterCommands()
 
 	Cmd = FDispatcherDelegate::CreateRaw(&FPlayerViewMode::Get(), &FPlayerViewMode::SetMode);
 	Help = "Set ViewMode to (lit, normal, depth, object_mask)";
+	// CommandDispatcher->BindCommand("vset /viewmode lit", Cmd, Help); // Better to check the correctness at compile time
+	// CommandDispatcher->BindCommand("vset /viewmode normal", Cmd, Help); // Better to check the correctness at compile time
+	// CommandDispatcher->BindCommand("vset /viewmode depth", Cmd, Help); // Better to check the correctness at compile time
+	// CommandDispatcher->BindCommand("vset /viewmode object_mask", Cmd, Help); // Better to check the correctness at compile time
 	CommandDispatcher->BindCommand("vset /viewmode [str]", Cmd, Help); // Better to check the correctness at compile time
 
 	Cmd = FDispatcherDelegate::CreateRaw(&FPlayerViewMode::Get(), &FPlayerViewMode::GetMode);
 	Help = "Get current ViewMode";
 	CommandDispatcher->BindCommand("vget /viewmode", Cmd, Help);
 
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetActorLocation);
+	Help = "Get actor location [x, y, z]";
+	CommandDispatcher->BindCommand("vget /actor/location", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetActorRotation);
+	Help = "Get actor rotation [pitch, yaw, roll]";
+	CommandDispatcher->BindCommand("vget /actor/rotation", Cmd, Help);
+
 	// Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetBuffer);
 	// CommandDispatcher->BindCommand("vget /camera/[uint]/buffer", Cmd, "Get buffer of this camera");
+
+	Help = "Return raw binary image data, instead of the image filename";
+	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetPngBinary(Args, TEXT("lit")); });
+	CommandDispatcher->BindCommand("vget /camera/[uint]/lit png", Cmd, Help);
+	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetPngBinary(Args, TEXT("depth")); });
+	CommandDispatcher->BindCommand("vget /camera/[uint]/depth png", Cmd, Help);
+	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetPngBinary(Args, TEXT("normal")); });
+	CommandDispatcher->BindCommand("vget /camera/[uint]/normal png", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetNpyBinary(Args, TEXT("depth")); });
+	CommandDispatcher->BindCommand("vget /camera/[uint]/depth npy", Cmd, Help);
+
+	// TODO: object_mask will be handled differently
 }
 
 FExecStatus FCameraCommandHandler::GetCameraCount(const TArray<FString>& Args)
@@ -370,7 +399,7 @@ FExecStatus FCameraCommandHandler::GetCameraLocation(const TArray<FString>& Args
 
 		FVector CameraLocation;
 		ACineCameraActor* CineCameraActor = nullptr;
-		for (AActor* Actor : GWorld->GetCurrentLevel()->Actors)
+		for (AActor* Actor : this->GetWorld()->GetCurrentLevel()->Actors)
 		{
 			// if (Actor && Actor->IsA(AMatineeActor::StaticClass())) // AMatineeActor is deprecated 
 			if (Actor && Actor->IsA(ACineCameraActor::StaticClass()))
@@ -383,16 +412,15 @@ FExecStatus FCameraCommandHandler::GetCameraLocation(const TArray<FString>& Args
 
 		if (!bIsMatinee)
 		{
-			int32 CameraId = FCString::Atoi(*Args[0]);
-			const UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
-			if (Camera)
+			int32 CameraId = FCString::Atoi(*Args[0]); // TODO: Add support for multiple cameras
+			// APawn* Pawn = FUE4CVServer::Get().GetPawn();
+			// CameraLocation = Pawn->GetActorLocation();
+			UGTCaptureComponent* CaptureComponent = FCaptureManager::Get().GetCamera(CameraId);
+			if (CaptureComponent == nullptr)
 			{
-				CameraLocation = Camera->GetOwner()->GetActorLocation();
+				return FExecStatus::Error(FString::Printf(TEXT("Camera %d can not be found."), CameraId));
 			}
-			else
-			{
-				return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
-			}
+			CameraLocation = CaptureComponent->GetComponentLocation();
 		}
 
 		FString Message = FString::Printf(TEXT("%.3f %.3f %.3f"), CameraLocation.X, CameraLocation.Y, CameraLocation.Z);
@@ -425,7 +453,6 @@ FExecStatus FCameraCommandHandler::GetObjectInstanceMask(const TArray<FString>& 
 		//ExecStatus = GetScreenshot(Args);
 		//return ExecStatus;
 	}
-	UE_LOG(LogUnrealCV, Warning, TEXT("Not enough arguments to GetObjectInstanceMask, got %d arguments"), Args.Num());
 	return FExecStatus::InvalidArgument;
 }
 
@@ -495,13 +522,13 @@ FExecStatus FCameraCommandHandler::GetCameraViewMode(const TArray<FString>& Args
 		return FExecStatus::AsyncQuery(FPromise(PromiseDelegate), Message);
 		// The filename here is just for message, not the fullname on the disk, because we can not know that due to sandbox issue.
 	}
-	UE_LOG(LogUnrealCV, Warning, TEXT("Not enough arguments to GetCameraViewMode, got %d arguments"), Args.Num());
 	return FExecStatus::InvalidArgument;
 }
 
+/** vget /camera/[id]/screenshot */
 FExecStatus FCameraCommandHandler::GetScreenshot(const TArray<FString>& Args)
 {
-	if (Args.Num() >= 2)
+	if (Args.Num() >= 1)
 	{
 		int32 CameraId = FCString::Atoi(*Args[0]);
 
@@ -510,13 +537,20 @@ FExecStatus FCameraCommandHandler::GetScreenshot(const TArray<FString>& Args)
 		{
 			Filename = GenerateSeqFilename();
 		}
-		if (Args.Num() == 2)
+		else
 		{
 			Filename = Args[1];
 		}
 
 		// FString FullFilename = GetDiskFilename(Filename);
-		return FScreenCapture::GetCameraViewAsyncQuery(Filename);
+		if (Filename.ToLower() == TEXT("png"))
+		{
+			return ScreenCaptureAsyncByQuery(); // return the binary data
+		}
+		else
+		{
+			return ScreenCaptureAsyncByQuery(Filename);
+		}
 	}
 	return FExecStatus::InvalidArgument;
 }
@@ -544,6 +578,48 @@ FExecStatus FCameraCommandHandler::GetBuffer(const TArray<FString>& Args)
 	return FExecStatus::OK();
 }
 
+FExecStatus FCameraCommandHandler::GetActorRotation(const TArray<FString>& Args)
+{
+	APawn* Pawn = FUE4CVServer::Get().GetPawn();
+	FRotator CameraRotation = Pawn->GetControlRotation();
+	FString Message = FString::Printf(TEXT("%.3f %.3f %.3f"), CameraRotation.Pitch, CameraRotation.Yaw, CameraRotation.Roll);
+	return FExecStatus::OK(Message);
+}
+
+FExecStatus FCameraCommandHandler::GetActorLocation(const TArray<FString>& Args)
+{
+	APawn* Pawn = FUE4CVServer::Get().GetPawn();
+	FVector CameraLocation = Pawn->GetActorLocation();
+	FString Message = FString::Printf(TEXT("%.3f %.3f %.3f"), CameraLocation.X, CameraLocation.Y, CameraLocation.Z);
+	return FExecStatus::OK(Message);
+}
+
+FExecStatus FCameraCommandHandler::GetPngBinary(const TArray<FString>& Args, const FString& ViewMode)
+{
+	int32 CameraId = FCString::Atoi(*Args[0]);
+
+	UGTCaptureComponent* GTCapturer = FCaptureManager::Get().GetCamera(CameraId);
+	if (GTCapturer == nullptr)
+	{
+		return FExecStatus::Error(FString::Printf(TEXT("Invalid camera id %d"), CameraId));
+	}
+
+	TArray<uint8> ImgData = GTCapturer->CapturePng(ViewMode);
+	return FExecStatus::Binary(ImgData);
+}
+
+FExecStatus FCameraCommandHandler::GetNpyBinary(const TArray<FString>& Args, const FString& ViewMode)
+{
+	int32 CameraId = FCString::Atoi(*Args[0]);
+
+	UGTCaptureComponent* GTCapturer = FCaptureManager::Get().GetCamera(CameraId);
+	if (GTCapturer == nullptr)
+	{
+		return FExecStatus::Error(FString::Printf(TEXT("Invalid camera id %d"), CameraId));
+	}
+
+	TArray<uint8> ImgData = GTCapturer->CaptureNpy(ViewMode);
+	return FExecStatus::Binary(ImgData);
 
 FExecStatus FCameraCommandHandler::GetCameraFOV(const TArray<FString>& Args)
 {
