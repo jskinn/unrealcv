@@ -101,7 +101,14 @@ FExecStatus FObjectCommandHandler::GetObjectNameFromColour(const TArray<FString>
 		uint32 R = FCString::Atoi(*Args[0]), G = FCString::Atoi(*Args[1]), B = FCString::Atoi(*Args[2]);
 		FColor LabelColour(R, G, B, 255);
 		AActor* Actor = FObjectPainter::Get().GetActorByColor(LabelColour);
-		return FExecStatus::OK(Actor->GetHumanReadableName());
+		if (Actor)
+		{
+			return FExecStatus::OK(Actor->GetHumanReadableName());
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Error: No actor for color %s"), *LabelColour.ToString()));
+		}
 	}
 	return FExecStatus::InvalidArgument;
 }
