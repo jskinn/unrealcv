@@ -52,6 +52,7 @@ public:
 	FExecStatus SetCameraFocusDistance(const TArray<FString>& Args);
 	FExecStatus GetCameraFstop(const TArray<FString>& Args);
 	FExecStatus SetCameraFstop(const TArray<FString>& Args);
+	FExecStatus GetCameraObstacleAvoidance(const TArray<FString>& Args);
 
 	/** Get HDR buffer visualization */
 	FExecStatus GetBuffer(const TArray<FString>& Args);

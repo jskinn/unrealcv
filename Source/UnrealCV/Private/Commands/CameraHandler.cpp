@@ -128,6 +128,10 @@ void FCameraCommandHandler::RegisterCommands()
 	Help = "Set projection matrix from camera [id]";
 	CommandDispatcher->BindCommand("vget /camera/[uint]/proj_matrix ", Cmd, Help);
 
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraObstacleAvoidance);
+	Help = "Get a force from nearby objects to camera [id], for obstacle avoidance within radius [radius]";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/avoid [float]", Cmd, Help);
+
 	Cmd = FDispatcherDelegate::CreateRaw(&FPlayerViewMode::Get(), &FPlayerViewMode::SetMode);
 	Help = "Set ViewMode to (lit, normal, depth, object_mask)";
 	// CommandDispatcher->BindCommand("vset /viewmode lit", Cmd, Help); // Better to check the correctness at compile time
@@ -784,4 +788,67 @@ FExecStatus FCameraCommandHandler::SetCameraFstop(const TArray<FString>& Args)
 		}
 	}
 	return FExecStatus::Error("Number of arguments incorrect");
+}
+
+FExecStatus FCameraCommandHandler::GetCameraObstacleAvoidance(const TArray<FString>& Args)
+{
+	if (Args.Num() >= 5) // ID, Radius, VelX, VelY, VelZ
+	{
+		int32 CameraId = FCString::Atoi(*Args[0]);
+		float Radius = FCString::Atof(*Args[1]);
+		float X = FCString::Atof(*Args[2]), Y = FCString::Atof(*Args[3]), Z = FCString::Atof(*Args[4]);
+		FVector CameraVelocity = FVector(X, Y, Z);
+		float LookaheadRange = 400.0;
+
+		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
+		if (Camera)
+		{
+			FVector CameraLocation = Camera->GetComponentLocation();
+			FQuat CameraQuat = Camera->GetComponentRotation().Quaternion();
+			UWorld* World = FUE4CVServer::Get().GetGameWorld();
+			FVector NetForce = FVector(0.0f, 0.0f, 0.0f);
+			
+			// Step 1: Sphere trace in the velocity direction to check if we're going to hit something
+			FCollisionQueryParams TraceParams = FCollisionQueryParams();
+			TraceParams.bTraceComplex = true;
+			TraceParams.bTraceAsyncScene = true;
+			TraceParams.bReturnPhysicalMaterial = false;
+
+			//Re-initialize hit info
+			FHitResult HitResult(ForceInit);
+
+			//call GetWorld() from within an actor extending class
+			World->SweepSingleByChannel(
+				HitResult,			//result
+				CameraLocation,		//start
+				CameraLocation + 10 * CameraVelocity,	//end
+				FQuat(),			//Trace orientation. Irrelevant for spheres
+				ECC_Visibility, 	//collision channel
+				FCollisionShape::MakeSphere(Radius),
+				TraceParams);
+
+			if (HitResult.bBlockingHit)
+			{
+				FVector AvoidDirection = CameraLocation - HitResult.Location;
+				// From v^2 = u^2 + 2as
+				// Choose v = 0, s = Distance / 2, u = CameraVelocity
+				// Then a = u^2 / Distance, in the avoid direction = (SquareVelocity / SquareDistance) * AvoidDirection
+				NetForce += (CameraVelocity.SizeSquared() / AvoidDirection.SizeSquared()) * AvoidDirection;
+			}
+
+			// Step 2: Ray trace away from adjacent walls, to give us more space
+			//FVector Right = FVector::CrossProduct(CameraVelocity, CameraQuat.GetUpVector());
+			//Right.Normalize();
+			//FVector Up = FVector::CrossProduct(Right, CameraVelocity);
+			//Up.Normalize();
+			
+			// Return the calculated force
+			FString Message = FString::Printf(TEXT("%.3f %.3f %.3f"), NetForce.X, NetForce.Y, NetForce.Z);
+			return FExecStatus::OK(Message);
+		}
+		else {
+			return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %d"), CameraId));
+		}
+	}
+	return FExecStatus::InvalidArgument;
 }
