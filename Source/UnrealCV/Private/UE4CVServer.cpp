@@ -10,6 +10,7 @@
 #include "ActionHandler.h"
 #include "AliasHandler.h"
 #include "ProceduralHandler.h"
+#include "QualityHandler.h"
 #if WITH_EDITOR
 #include "UnrealEd.h"
 #endif
@@ -57,6 +58,7 @@ void FUE4CVServer::RegisterCommandHandlers()
 	CommandHandlers.Add(new FActionCommandHandler(CommandDispatcher));
 	CommandHandlers.Add(new FAliasCommandHandler(CommandDispatcher));
 	CommandHandlers.Add(new FProceduralHandler(CommandDispatcher));
+	CommandHandlers.Add(new FQualityCommandHandler(CommandDispatcher));
 	for (FCommandHandler* Handler : CommandHandlers)
 	{
 		Handler->RegisterCommands();
