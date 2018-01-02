@@ -37,6 +37,7 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override; // TODO
 
 	void SetFOVAngle(float FOV);
+	float GetFieldOfView() const;
 
 	/** Save image to a file */
 	FAsyncRecord* Capture(FString Mode, FString Filename);
@@ -51,9 +52,6 @@ public:
 	TArray<uint8> CaptureNpyFloat16(FString Mode, int32 Channels);
 
 	USceneCaptureComponent2D* GetCaptureComponent(FString Mode);
-
-	float GetFieldOfView() const;
-	void SetFieldOfView(float Fov);
 
 	void SetEnableDepthOfField(bool Enabled);
 	void SetAutofocus(bool Enabled);

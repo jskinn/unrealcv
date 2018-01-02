@@ -19,6 +19,7 @@ FServerConfig::FServerConfig()
 	EnableRightEye = false;
 
 	SupportedModes.Add(TEXT("lit"));
+	SupportedModes.Add(TEXT("unlit"));
 	SupportedModes.Add(TEXT("depth"));
 //	SupportedModes.Add(TEXT("vis_depth"));
 //	SupportedModes.Add(TEXT("plane_depth"));

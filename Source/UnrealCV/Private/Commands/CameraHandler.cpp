@@ -224,7 +224,7 @@ FExecStatus FCameraCommandHandler::GetCameraCount(const TArray<FString>& Args)
 FExecStatus FCameraCommandHandler::CreateCamera(const TArray<FString>& Args)
 {
 	FVector Location(0,0,0);
-	
+
 	if (Args.Num() >= 3)
 	{
 		float X = FCString::Atof(*Args[1]), Y = FCString::Atof(*Args[2]), Z = FCString::Atof(*Args[3]);
@@ -242,7 +242,7 @@ FExecStatus FCameraCommandHandler::CreateCamera(const TArray<FString>& Args)
 		}
 		Location = FVector(X, Y, Z);
 	}
-	
+
 	int32 CameraId = FCaptureManager::Get().CreateCamera(Location, FUE4CVServer::Get().GetGameWorld());
 	return FExecStatus::OK(FString::FromInt(CameraId));
 }
@@ -267,7 +267,7 @@ FExecStatus FCameraCommandHandler::SetCameraProjMatrix(const TArray<FString>& Ar
 	// FMatrix& ProjMatrix = FSceneView::ViewProjectionMatrix;
 	// this->Character->GetWorld()->GetGameViewport()->Viewport->
 	// this->Character
-	
+
 	return FExecStatus::InvalidArgument;
 }
 
@@ -352,7 +352,7 @@ FExecStatus FCameraCommandHandler::SetCameraRotation(const TArray<FString>& Args
 		int32 CameraId = FCString::Atoi(*Args[0]); // TODO: Add support for multiple cameras
 		float Pitch = FCString::Atof(*Args[1]), Yaw = FCString::Atof(*Args[2]), Roll = FCString::Atof(*Args[3]);
 		FRotator Rotator = FRotator(Pitch, Yaw, Roll);
-		
+
 		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
 		if (Camera)
 		{
@@ -361,7 +361,7 @@ FExecStatus FCameraCommandHandler::SetCameraRotation(const TArray<FString>& Args
 			{
 				// This doesn't work because the camera is tied to the player control rotation on tick.
 				//bool Success = CameraActor->SetActorRotation(Rotator, ETeleportType::TeleportPhysics);
-				
+
 				bool Success = false;
 				APawn* Pawn = Cast<APawn>(CameraActor);
 				if (Pawn)
@@ -837,8 +837,8 @@ TArray<uint8> FCameraCommandHandler::GetNpyBinaryUint8Data(const TArray<FString>
 		return TArray<uint8>();
 	}
 
-	TArray<uint8> ImgData = GTCapturer->CaptureNpy(ViewMode);
-	return FExecStatus::Binary(ImgData);
+	TArray<uint8> ImgData = GTCapturer->CaptureNpyUint8(ViewMode, Channels);
+	return ImgData;
 }
 
 FExecStatus FCameraCommandHandler::GetNpyBinaryUint8(const TArray<FString>& Args, const FString& ViewMode, int32 Channels)
@@ -894,7 +894,7 @@ FExecStatus FCameraCommandHandler::SetCameraFOV(const TArray<FString>& Args)
 		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
 		if (Camera)
 		{
-			Camera->SetFieldOfView(FCString::Atof(*Args[1]));
+			Camera->SetFOVAngle(FCString::Atof(*Args[1]));
 			return FExecStatus::OK("Set camera FOV");
 		}
 		else
@@ -1050,7 +1050,7 @@ FExecStatus FCameraCommandHandler::GetCameraObstacleAvoidance(const TArray<FStri
 			FQuat CameraQuat = Camera->GetComponentRotation().Quaternion();
 			UWorld* World = FUE4CVServer::Get().GetGameWorld();
 			FVector NetForce = FVector(0.0f, 0.0f, 0.0f);
-			
+
 			// Step 1: Sphere trace in the velocity direction to check if we're going to hit something
 			FCollisionQueryParams TraceParams = FCollisionQueryParams();
 			TraceParams.bTraceComplex = true;
@@ -1084,7 +1084,7 @@ FExecStatus FCameraCommandHandler::GetCameraObstacleAvoidance(const TArray<FStri
 			//Right.Normalize();
 			//FVector Up = FVector::CrossProduct(Right, CameraVelocity);
 			//Up.Normalize();
-			
+
 			// Return the calculated force
 			FString Message = FString::Printf(TEXT("%.3f %.3f %.3f"), NetForce.X, NetForce.Y, NetForce.Z);
 			return FExecStatus::OK(Message);

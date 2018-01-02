@@ -30,7 +30,6 @@ void InitCaptureComponent(USceneCaptureComponent2D* CaptureComponent)
 	CaptureComponent->RegisterComponentWithWorld(World); // What happened for this?
 }
 
-
 void SaveExr(UTextureRenderTarget2D* RenderTarget, FString Filename)
 {
 	SCOPE_CYCLE_COUNTER(STAT_SaveExr)
@@ -75,7 +74,7 @@ UMaterial* UGTCaptureComponent::GetMaterial(FString InModeName = TEXT(""))
 	{
 		MaterialPathMap = new TMap<FString, FString>();
 		MaterialPathMap->Add(TEXT("depth"), TEXT("Material'/UnrealCV/SceneDepthWorldUnits.SceneDepthWorldUnits'"));
-    MaterialPathMap->Add(TEXT("plane_depth"), TEXT("Material'/UnrealCV/ScenePlaneDepthWorldUnits.ScenePlaneDepthWorldUnits'"));
+		MaterialPathMap->Add(TEXT("plane_depth"), TEXT("Material'/UnrealCV/ScenePlaneDepthWorldUnits.ScenePlaneDepthWorldUnits'"));
 		MaterialPathMap->Add(TEXT("vis_depth"), TEXT("Material'/UnrealCV/SceneDepth.SceneDepth'"));
 		MaterialPathMap->Add(TEXT("debug"), TEXT("Material'/UnrealCV/debug.debug'"));
 		//MaterialPathMap->Add(TEXT("object_mask"), TEXT("Material'/UnrealCV/ObjectMask.ObjectMask'"));
@@ -210,6 +209,12 @@ void UGTCaptureComponent::SetFOVAngle(float FOV)
     }
 }
 
+float UGTCaptureComponent::GetFieldOfView() const
+{
+	const USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
+	return LitCaptureComponent->FOVAngle;
+}
+
 FAsyncRecord* UGTCaptureComponent::Capture(FString Mode, FString InFilename)
 {
 	// Flush location and rotation
@@ -273,12 +278,8 @@ TArray<uint8> UGTCaptureComponent::CaptureNpyUint8(FString Mode, int32 Channels)
     return NpyData;
   }
 
-	// Attach this to something, for example, a real camera
-	const FRotator PawnViewRotation = Pawn->GetViewRotation();
-	if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
-	{
-		CaptureComponent->SetWorldRotation(PawnViewRotation);
-	}
+	//Make sure our orientation is correct
+	this->SyncToControlRotation();
 
 	UTextureRenderTarget2D* RenderTarget = CaptureComponent->TextureTarget;
 	int32 Width = RenderTarget->SizeX, Height = RenderTarget->SizeY;
@@ -311,12 +312,8 @@ TArray<uint8> UGTCaptureComponent::CaptureNpyFloat16(FString Mode, int32 Channel
 		return NpyData;
   }
 
-	// Attach this to something, for example, a real camera
-	const FRotator PawnViewRotation = Pawn->GetViewRotation();
-	if (!PawnViewRotation.Equals(CaptureComponent->GetComponentRotation()))
-	{
-		CaptureComponent->SetWorldRotation(PawnViewRotation);
-	}
+	//Make sure our orientation is correct
+	this->SyncToControlRotation();
 
 	UTextureRenderTarget2D* RenderTarget = CaptureComponent->TextureTarget;
 	int32 Width = RenderTarget->SizeX, Height = RenderTarget->SizeY;
@@ -517,21 +514,6 @@ USceneCaptureComponent2D* UGTCaptureComponent::GetCaptureComponent(FString Mode)
 	check(CaptureComponents.Num() != 0);
 	USceneCaptureComponent2D* CaptureComponent = CaptureComponents.FindRef(Mode);
     return CaptureComponent;
-}
-
-float UGTCaptureComponent::GetFieldOfView() const
-{
-	const USceneCaptureComponent2D* LitCaptureComponent = this->CaptureComponents.FindRef("Lit");
-	return LitCaptureComponent->FOVAngle;
-}
-
-void UGTCaptureComponent::SetFieldOfView(float Fov)
-{
-	for (auto& Elem : this->CaptureComponents)
-	{
-		USceneCaptureComponent2D* CaptureComponent = Elem.Value;
-		CaptureComponent->FOVAngle = Fov;
-	}
 }
 
 void UGTCaptureComponent::SetEnableDepthOfField(bool Enabled)
