@@ -129,7 +129,7 @@ void FViewMode::VertexColor(FEngineShowFlags& ShowFlags)
 void FViewMode::Unlit(FEngineShowFlags& ShowFlags)
 {
 	ApplyViewMode(VMI_Unlit, true, ShowFlags);
-	ShowFlags.SetMaterials(false);
+	ShowFlags.SetMaterials(true);
 	ShowFlags.SetVertexColors(false);
 	ShowFlags.SetLightFunctions(false);
 	ShowFlags.SetLighting(false);

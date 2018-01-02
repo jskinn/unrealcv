@@ -12,6 +12,7 @@ void FCaptureManager::AttachGTCaptureComponentToCamera(AActor* Actor)
 	// TODO: Make this automatic from material loader.
 	TArray<FString> SupportedModes;
 	SupportedModes.Add(TEXT("lit")); // This is lit
+	SupportedModes.Add(TEXT("unlit"));
 	SupportedModes.Add(TEXT("depth"));
 	// SupportedModes.Add(TEXT("debug"));
 	SupportedModes.Add(TEXT("object_mask"));

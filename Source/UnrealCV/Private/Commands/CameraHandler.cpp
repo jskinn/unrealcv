@@ -798,7 +798,6 @@ FExecStatus FCameraCommandHandler::GetCameraObstacleAvoidance(const TArray<FStri
 		float Radius = FCString::Atof(*Args[1]);
 		float X = FCString::Atof(*Args[2]), Y = FCString::Atof(*Args[3]), Z = FCString::Atof(*Args[4]);
 		FVector CameraVelocity = FVector(X, Y, Z);
-		float LookaheadRange = 400.0;
 
 		UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(CameraId);
 		if (Camera)
@@ -851,4 +850,9 @@ FExecStatus FCameraCommandHandler::GetCameraObstacleAvoidance(const TArray<FStri
 		}
 	}
 	return FExecStatus::InvalidArgument;
+}
+
+FExecStatus FCameraCommandHandler::GetPath(const TArray<FString>& Args)
+{
+	return FExecStatus::Error("TODO: Find a path using the navmesh and return a sequence of waypoints.");
 }

@@ -179,6 +179,10 @@ UGTCaptureComponent* UGTCaptureComponent::Create(AActor* Parent, TArray<FString>
 		{
 			continue;
 		}
+		else if (Mode == "unlit")
+		{
+			FViewMode::Unlit(CaptureComponent->ShowFlags);
+		}
 		else // for ground truth
 		{
 			CaptureComponent->TextureTarget->TargetGamma = 1;
