@@ -1,13 +1,12 @@
 #include "UnrealCVPrivate.h"
 #include "Paths.h"
 #include "Modules/ModuleManager.h"
-#include "ImageWrapper.h"
+#include "Serialization.h"
 #include "Misc/FileHelper.h"
 #include "CaptureCameraActor.h"
 
 ACaptureCamera::ACaptureCamera() :
 	VisionSensor(nullptr),
-	ImageWrapper(nullptr),
 	CurrentFilename(TEXT("")),
 	bIsWaitingForImage(false),
 	bSavedImage(false)
@@ -21,9 +20,6 @@ ACaptureCamera::ACaptureCamera() :
 		}
 	}));
 	//VisionSensor->SetDelegate(FVisionSensorGotImageDelegate::CreateUObject(this, &ACaptureCamera::OnCapturedFrame));
-	
-	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-	ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
 }
 
 FExecStatus ACaptureCamera::GetCameraViewAsync(const FString& Filename)
@@ -49,11 +45,9 @@ void ACaptureCamera::OnCapturedFrame(FCapturedFrame& Frame)
 {
 	if (bIsWaitingForImage)
 	{
-		if (ImageWrapper->SetRaw(Frame.Pixels.GetData(), Frame.Pixels.Num() * sizeof(FColor), Frame.BufferSize.X, Frame.BufferSize.Y, ERGBFormat::BGRA, 8))
-		{
-			FFileHelper::SaveArrayToFile(ImageWrapper->GetCompressed(ImageCompression::Default), *CurrentFilename);
-			bSavedImage = true;
-		}
+		TArray<uint8> ImgData = SerializationUtils::Image2Png(Frame.Pixels, Frame.BufferSize.X, Frame.BufferSize.Y);
+		FFileHelper::SaveArrayToFile(ImgData, *CurrentFilename);
+		bSavedImage = true;
 	}
 }
 

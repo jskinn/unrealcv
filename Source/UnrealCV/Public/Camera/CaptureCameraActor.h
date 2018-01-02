@@ -34,7 +34,6 @@ public:
     UVisionSensorComponent* VisionSensor;
 
 private:
-	IImageWrapperPtr ImageWrapper;
 	FString CurrentFilename;
 	bool bIsWaitingForImage;
 	bool bSavedImage;
