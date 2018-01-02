@@ -74,6 +74,7 @@ FUE4CVServer::FUE4CVServer()
 
 	NetworkManager->AddToRoot(); // Avoid GC
 	NetworkManager->OnReceived().AddRaw(this, &FUE4CVServer::HandleRawMessage);
+	NetworkManager->OnError().AddRaw(this, &FUE4CVServer::HandleError);
 }
 
 FUE4CVServer::~FUE4CVServer()
@@ -146,17 +147,43 @@ bool FUE4CVServer::InitWorld()
 		APlayerController* PlayerController = World->GetFirstPlayerController();
 		check(PlayerController);
 
+		// Update camera FOV
+		PlayerController->PlayerCameraManager->SetFOV(Config.FOV);
+
 		FObjectPainter::Get().Reset(World->GetCurrentLevel());
 		FCaptureManager::Get().AttachGTCaptureComponentToCamera(GetPawn()); // TODO: Make this configurable in the editor
 
-		FCaptureManager::Get().AttachGTCaptureComponentToCamera(GetPawn());
-		
+		UpdateInput(Config.EnableInput);
+
 		FEngineShowFlags ShowFlags = World->GetGameViewport()->EngineShowFlags;
 		FPlayerViewMode::Get().SaveGameDefault(ShowFlags);
 
 		CurrentWorld = World;
 	}
 	return true;
+}
+
+void FUE4CVServer::UpdateInput(bool Enable)
+{
+	APlayerController* PlayerController = GetGameWorld()->GetFirstPlayerController();
+	check(PlayerController);
+	if (Enable)
+	{
+		UE_LOG(LogUnrealCV, Warning, TEXT("Enabling input"));
+		PlayerController->GetPawn()->EnableInput(PlayerController);
+	}
+	else
+	{
+		UE_LOG(LogUnrealCV, Warning, TEXT("Disabling input"));
+		PlayerController->GetPawn()->DisableInput(PlayerController);
+	}
+}
+
+void FUE4CVServer::OpenLevel(FName LevelName)
+{
+	UGameplayStatics::OpenLevel(GetGameWorld(), LevelName);
+	UGameplayStatics::FlushLevelStreaming(GetGameWorld());
+	UE_LOG(LogUnrealCV, Warning, TEXT("Level loaded"));
 }
 
 // Each tick of GameThread.
@@ -209,6 +236,16 @@ void FUE4CVServer::HandleRawMessage(const FString& InRawMessage)
 	else
 	{
 		SendClientMessage(FString::Printf(TEXT("error: Malformat raw message '%s'"), *InRawMessage));
+	}
+}
+
+/** Error handler for server */
+void FUE4CVServer::HandleError(const FString& InErrorMessage)
+{
+	if (Config.ExitOnFailure)
+	{
+		UE_LOG(LogUnrealCV, Error, TEXT("Unexpected error from server. Requesting exit. Error message: %s"), *InErrorMessage);
+		FGenericPlatformMisc::RequestExit(false);
 	}
 }
 

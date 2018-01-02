@@ -2,9 +2,15 @@
 Usage in the Editor
 ======================
 
-In UE4 editor, you can edit the scene and change the material properties. We show a few examples here using the scene
+In UE4 editor, you can run UnrealCV command, edit the scene and change the material properties. We show a few examples here using the scene
 `RealisticRendering <http://docs.unrealcv.org/en/develop/reference/model_zoo.html#realisticrendering>`_.
 
+Run UnrealCV Command
+--------------------
+
+While playing the level in the editor, press ` to open the built-in console and run UnrealCV like in the game binary.
+
+.. image:: https://image.ibb.co/jog255/command1.png
 
 Edit Object Specularity
 -----------------------
@@ -38,3 +44,7 @@ Use UnrealCV commands in the editor
 .. image:: https://preview.ibb.co/mavL8Q/editor_mask.png
 
 You can use UnrealCV commands the same way as in a standalone binary.
+
+Reference
+---------
+This page is contributed by the `UnrealStereo <https://arxiv.org/abs/1612.04647>`_  project and the tool and images will be released soon.

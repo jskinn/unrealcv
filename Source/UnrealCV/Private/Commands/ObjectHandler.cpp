@@ -3,6 +3,8 @@
 #include "ObjectPainter.h"
 
 
+FExecStatus GetObjectMobility(const TArray<FString>& Args);
+
 void FObjectCommandHandler::RegisterCommands()
 {
 	FDispatcherDelegate Cmd;
@@ -51,6 +53,18 @@ void FObjectCommandHandler::RegisterCommands()
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::GetObjectLabels);
 	Help = "Get object labels [x, y, z]";
 	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/labels"), Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateStatic(GetObjectMobility);
+	Help = "Is the object static or movable?";
+	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/mobility"), Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::ShowObject);
+	Help = "Show object";
+	CommandDispatcher->BindCommand(TEXT("vset /object/[str]/show"), Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::HideObject);
+	Help = "Hide object";
+	CommandDispatcher->BindCommand(TEXT("vset /object/[str]/hide"), Cmd, Help);
 }
 
 FExecStatus FObjectCommandHandler::GetObjects(const TArray<FString>& Args)
@@ -226,9 +240,16 @@ FExecStatus FObjectCommandHandler::SetObjectLocation(const TArray<FString>& Args
 		// TODO: Check whether this object is movable
 		float X = FCString::Atof(*Args[1]), Y = FCString::Atof(*Args[2]), Z = FCString::Atof(*Args[3]);
 		FVector NewLocation = FVector(X, Y, Z);
-		bool Success = Object->SetActorLocation(NewLocation);
+		bool Success = Object->SetActorLocation(NewLocation, false, nullptr, ETeleportType::TeleportPhysics);
 
-		return FExecStatus::OK();
+		if (Success)
+		{
+			return FExecStatus::OK();
+		}
+		else
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Failed to move object %s"), *ObjectName));
+		}
 	}
 	return FExecStatus::InvalidArgument;
 }
@@ -275,6 +296,64 @@ FExecStatus FObjectCommandHandler::GetObjectLabels(const TArray<FString>& Args)
 		}
 		return FExecStatus::OK(Tags);
 	}
+	return FExecStatus::InvalidArgument;
+}
 
+FExecStatus GetObjectMobility(const TArray<FString>& Args)
+{
+	if (Args.Num() == 1)
+	{
+		FString ObjectName = Args[0];
+		AActor* Object = FObjectPainter::Get().GetObject(ObjectName);
+		if (Object == NULL)
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Can not find object %s"), *ObjectName));
+		}
+
+		FString MobilityName = "";
+		EComponentMobility::Type Mobility = Object->GetRootComponent()->Mobility.GetValue();
+		switch (Mobility)
+		{
+		case EComponentMobility::Type::Movable: MobilityName = "Movable"; break;
+		case EComponentMobility::Type::Static: MobilityName = "Static"; break;
+		case EComponentMobility::Type::Stationary: MobilityName = "Stationary"; break;
+		default: MobilityName = "Unknown";
+		}
+		return FExecStatus::OK(MobilityName);
+	}
+	return FExecStatus::InvalidArgument;
+}
+
+FExecStatus FObjectCommandHandler::ShowObject(const TArray<FString>& Args)
+{
+	if (Args.Num() == 1)
+	{
+		FString ObjectName = Args[0];
+		AActor* Object = FObjectPainter::Get().GetObject(ObjectName);
+		if (Object == NULL)
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Can not find object %s"), *ObjectName));
+		}
+
+		Object->SetActorHiddenInGame(false);
+		return FExecStatus::OK();
+	}
+	return FExecStatus::InvalidArgument;
+}
+
+FExecStatus FObjectCommandHandler::HideObject(const TArray<FString>& Args)
+{
+	if (Args.Num() == 1)
+	{
+		FString ObjectName = Args[0];
+		AActor* Object = FObjectPainter::Get().GetObject(ObjectName);
+		if (Object == NULL)
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Can not find object %s"), *ObjectName));
+		}
+
+		Object->SetActorHiddenInGame(true);
+		return FExecStatus::OK();
+	}
 	return FExecStatus::InvalidArgument;
 }

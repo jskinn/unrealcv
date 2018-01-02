@@ -11,8 +11,6 @@ This tutorial will use a game binary to demonstrate UnrealCV commands. You can a
 
 First you need to download a game binary from :doc:`our model zoo </reference/model_zoo>`. For this tutorial, please download :ref:`RealisticRendering <rr>`. After unzip and run the binary, you are expected to see a screen like this. The game will be started in a window mode with resolution 640x480, you can change the resolution by :doc:`changing the configuration file </plugin/config>` of UnrealCV.
 
-:ref:`rr`
-
 .. figure:: ../images/rr_init.png
     :width: 300px
     :align: center
@@ -78,9 +76,7 @@ Generate some images from the scene
       filename = client.request('vget /camera/0/lit')
       filename = client.request('vget /camera/0/depth depth.exr')
 
-You can find this example in `client/examples/10lines.py`__.
-
-.. __: https://github.com/unrealcv/unrealcv/blob/master/client/examples/10lines.py
+You can find this example in :gitcode:`examples/10lines.py`.
 
 
 If you encountered any errors following this tutorial, please see :doc:`the diagnosis </reference/issues>` page to find a solution.

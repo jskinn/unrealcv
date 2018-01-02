@@ -10,6 +10,8 @@ We provide compiled virtual worlds to play with. All the digital contents belong
 
 .. Make sure links (all versions) in this page is always accesible. If I need to move files to a new place, link the new place. Do not use version in the filename, use _master.zip as suffix. So that when others share the link, they always share the _master link.
 
+
+
 Run the downloaded binary
 
 - In Mac: Run :code:`[ProjectName].app`
@@ -17,6 +19,9 @@ Run the downloaded binary
 - In Windows: Run :code:`[ProjectName]/[ProjectName].exe`
 
 Read :doc:`/plugin/package`, if you are interested in sumbitting a binary to the model zoo.
+
+
+
 
 .. _rr:
 
@@ -31,9 +36,12 @@ RealisticRendering
 
 :Description: Realistic Rendering is a demo created by Epic Games to show the rendering power of Unreal Engine 4. Here we provide an extended version of this demo with UnrealCV embedded.
 
-:Plugin: 0.3.9
+:Plugin: 0.3.10
 
-:Download: `Windows <http://www.cs.jhu.edu/~qiuwch/release/unrealcv/RealisticRendering-Windows-0.3.9.zip>`__, `Linux <http://www.cs.jhu.edu/~qiuwch/release/unrealcv/RealisticRendering-Linux-0.3.9.zip>`__ , `Mac <http://www.cs.jhu.edu/~qiuwch/unrealcv/binaries//RealisticRendering-Mac-65d6144-c25660b.zip>`__ (old version)
+:Download:
+    :bin:`Windows <RealisticRendering-Win-0.3.10.zip>`,
+    :bin:`Linux <RealisticRendering-Linux-0.3.10.zip>`,
+    :bin:`Mac <RealisticRendering-Mac-0.3.10.zip>`
 
 
 - `Docker`
@@ -54,9 +62,12 @@ ArchinteriorsVol2Scene1
 
 :Description: ArchinteriorsVol2Scene1 is a scene of a 2 floors apartment.
 
-:Plugin: 0.3.6
+:Plugin: 0.3.10
 
-:Download: `Windows <http://cs.jhu.edu/~qiuwch/release/unrealcv/ArchinteriorsVol2Scene1-Windows-0.3.6.zip>`__, `Linux <http://cs.jhu.edu/~qiuwch/release/unrealcv/ArchinteriorsVol2Scene1-Linux-0.3.8.zip>`__
+:Download:
+    :bin:`Windows <ArchinteriorsVol2Scene1-Win-0.3.10.zip>`,
+    :bin:`Linux <ArchinteriorsVol2Scene1-Linux-0.3.10.zip>`,
+    :bin:`Mac <ArchinteriorsVol2Scene1-Mac-0.3.10.zip>`
 
 
 ArchinteriorsVol2Scene2
@@ -70,9 +81,12 @@ ArchinteriorsVol2Scene2
 
 :Description: ArchinteriorsVol2Scene2 is a scene of a house with 1 bedroom and 1 bathroom.
 
-:Plugin: 0.3.6
+:Plugin: 0.3.10
 
-:Download: `Windows <http://cs.jhu.edu/~qiuwch/release/unrealcv/ArchinteriorsVol2Scene2-Windows-0.3.6.zip>`__, `Linux <http://cs.jhu.edu/~qiuwch/release/unrealcv/ArchinteriorsVol2Scene2-Linux-0.3.8.zip>`__
+:Download:
+    :bin:`Windows <ArchinteriorsVol2Scene2-Win-0.3.10.zip>`,
+    :bin:`Linux <ArchinteriorsVol2Scene2-Linux-0.3.10.zip>`,
+    :bin:`Mac <ArchinteriorsVol2Scene2-Mac-0.3.10.zip>`
 
 
 ArchinteriorsVol2Scene3
@@ -86,9 +100,12 @@ ArchinteriorsVol2Scene3
 
 :Description: ArchinteriorsVol2Scene3 is a scene of an office.
 
-:Plugin: 0.3.6
+:Plugin: 0.3.10
 
-:Download: `Windows <http://cs.jhu.edu/~qiuwch/release/unrealcv/ArchinteriorsVol2Scene3-Windows-0.3.6.zip>`__, `Linux <http://cs.jhu.edu/~qiuwch/release/unrealcv/ArchinteriorsVol2Scene3-Linux-0.3.8.zip>`__
+:Download:
+    :bin:`Windows <ArchinteriorsVol2Scene3-Win-0.3.10.zip>`,
+    :bin:`Linux <ArchinteriorsVol2Scene3-Linux-0.3.10.zip>`,
+    :bin:`Mac <ArchinteriorsVol2Scene3-Mac-0.3.10.zip>`,
 
 
 UrbanCity
@@ -102,13 +119,9 @@ UrbanCity
 
 :Description: UrbanCity is a scene of a block of street.
 
-:Plugin: 0.3.6
+:Plugin: 0.3.10
 
-:Download: `Windows <http://cs.jhu.edu/~qiuwch/release/unrealcv/UrbanCity-Windows-0.3.6.zip>`__, `Linux <http://cs.jhu.edu/~qiuwch/release/unrealcv/UrbanCity-Linux-0.3.6.zip>`__
-
-
-First Person Shooter
---------------------
-
-
-.. TODO: Under construction
+:Download:
+    :bin:`Windows <UrbanCity-Win-0.3.10.zip>`,
+    :bin:`Linux <UrbanCity-Linux-0.3.10.zip>`,
+    :bin:`Mac <UrbanCity-Mac-0.3.10.zip>`

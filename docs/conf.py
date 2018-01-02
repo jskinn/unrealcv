@@ -5,83 +5,59 @@ doc_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(doc_dir)
 sys.path.insert(0, doc_dir)
 
-# If runs on ReadTheDocs environment
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-
-# Hack for lacking git-lfs support ReadTheDocs
 if on_rtd:
+    # If runs on ReadTheDocs environment
     print('Fetching files with git_lfs for %s' % project_dir)
-    from git_lfs import fetch
-    fetch(project_dir)
+    # Hack for lacking git-lfs support ReadTheDocs
+    import git_lfs
+    git_lfs.fetch(project_dir)
 
-    subprocess.call('doxygen Doxyfile', shell=True)
     # Generate xml from doxygen
+    subprocess.call(['doxygen', 'Doxyfile'])
 
 import sphinx_rtd_theme
 
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
-    'sphinx_gallery.gen_gallery',
-    'breathe',
     'sphinx_issues',
+    'nbsphinx',
+    'sphinx.ext.napoleon',
+    # support doc string with section titles
+    'sphinx.ext.autosummary',
+    'sphinx.ext.extlinks',
 ]
+
+extlinks = {
+    'bin': ('http://cs.jhu.edu/~qiuwch/release/unrealcv/%s', None),
+    'gitcode': ('https://github.com/unrealcv/unrealcv/blob/master/', '')
+}
 
 # Github repo
 issues_github_path = 'unrealcv/unrealcv'
 
-sphinx_gallery_conf = {
-    'examples_dirs': ['tutorials_source'],
-    'gallery_dirs': ['tutorials'],
-    'filename_pattern': 'tutorial.py',
-    'backreferences_dir': False,
-    'download_section_examples': False,
-    'download_all_examples': False,
-}
-# plot_gallery = False, this is not useful because it will use the no picture version
-
-for i in range(len(sphinx_gallery_conf['examples_dirs'])):
-    gallery_dir = sphinx_gallery_conf['gallery_dirs'][i]
-    source_dir = sphinx_gallery_conf['examples_dirs'][i]
-    # Create gallery dirs if it doesn't exist
-    if not os.path.isdir(gallery_dir):
-        os.mkdir(gallery_dir)
-
-    # Copy rst files from source dir to gallery dir
-    for f in glob.glob(os.path.join(source_dir, '*.rst')):
-        shutil.copy(f, gallery_dir)
-
-
-# Use a hacky way to skip the tutorial generation for ReadTheDocs
-def get_md5sum(src_file):
-    """Returns md5sum of file, from https://github.com/sphinx-gallery/sphinx-gallery/blob/master/sphinx_gallery/gen_rst.py#L201"""
-    with open(src_file, 'rb') as src_data:
-        src_content = src_data.read()
-        src_md5 = hashlib.md5(src_content).hexdigest()
-    return src_md5
-
-tutorial_files = [ './tutorials_source/generate_images_tutorial.py']
-if on_rtd:
-    for f in tutorial_files:
-        md5_file = f.replace('_source', '') + '.md5'
-        with open(md5_file, 'w') as file_checksum:
-            file_checksum.write(get_md5sum(f))
-
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_parsers = {
+   '.md': 'recommonmark.parser.CommonMarkParser',
+} # Markdown support
+
+source_suffix = ['.rst', '.md']
+# source_suffix = '.rst'
 
 # The master toctree document.
-master_doc = 'index'
+# master_doc = 'index'
+master_doc = 'contents'
+# master_doc = 'README'
 
 # General information about the project.
 project = 'UnrealCV'
 copyright = '2017, UnrealCV team'
 author = 'UnrealCV contributors'
 
-def parse_unrealcv_version(unrealcv_folder='./unrealcv'):
+def parse_unrealcv_version(unrealcv_folder):
     plugin_descriptor = os.path.join(unrealcv_folder, 'UnrealCV.uplugin')
     with open(plugin_descriptor) as f:
         description = json.load(f)
@@ -94,7 +70,6 @@ def parse_unrealcv_version(unrealcv_folder='./unrealcv'):
 #
 # The short X.Y version.
 version = parse_unrealcv_version('..')
-# TODO: Read this from the plugin file.
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -105,12 +80,14 @@ release = version
 # Usually you set "language" from the command line for these cases.
 language = None
 
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-exclude_patterns += sphinx_gallery_conf['examples_dirs']
-exclude_patterns += ['*/index.rst']
+# Folder can not end with /
+exclude_patterns = [
+    '_build/',
+    '**/Thumbs.db',
+    '**/.DS_Store/',
+    '**/.ipynb_checkpoints'
+]
+
 print(exclude_patterns)
 
 # The name of the Pygments (syntax highlighting) style to use.
@@ -135,12 +112,26 @@ html_theme_options = {
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'UnrealCVDoc'
 
-breathe_projects = {
-    "unrealcv": "./doxygen/xml/",
-}
-breathe_default_project = 'unrealcv'
+# extensions.append('breathe') # Support doxygen
+# breathe_projects = {
+#     "unrealcv": "./doxygen/xml/",
+# }
+# breathe_default_project = 'unrealcv'
 
 # Some extra configurations of sphinx
 # Reference: http://www.sphinx-doc.org/en/stable/config.html
 numfig = True
+
+suppress_warnings = ['image.nonlocal_uri']
+# Some images are hosted outside this project to reduce the repo size, so I don't care about this warning.
+
 nitpicky = True
+nitpick_ignore = [('py:obj', 'str'), ('py:obj', 'bool')]
+
+# Fix lexer issue for anaconda ipython
+# from https://github.com/tomoh1r/symfony-docs-trans-env/issues/6
+# and https://github.com/ContinuumIO/anaconda-issues/issues/1430
+from sphinx.highlighting import lexers
+from pygments.lexers.python import PythonLexer
+lexers['ipython2'] = PythonLexer()
+lexers['ipython3'] = PythonLexer()

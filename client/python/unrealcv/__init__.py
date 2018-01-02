@@ -7,7 +7,7 @@ Provides functions to interact with games built using Unreal Engine.
 >>> (HOST, PORT) = ('localhost', 9000)
 >>> client = unrealcv.Client((HOST, PORT))
 '''
-import ctypes, struct, threading, socket, re, time, logging
+import sys, ctypes, struct, threading, socket, re, time, logging
 try:
     from Queue import Queue
 except:
@@ -85,7 +85,7 @@ class SocketMessage(object):
 
         rfile.close()
 
-        return payload.decode('UTF-8')
+        return payload
 
     @classmethod
     def WrapAndSendPayload(cls, socket, payload):
@@ -107,7 +107,7 @@ class SocketMessage(object):
             wfile.write(struct.pack(fmt, socket_message.payload_size))
             # print 'Sent ', socket_message.payload_size
 
-            wfile.write(payload.encode('UTF-8'))
+            wfile.write(payload)
             # print 'Sent ', payload
             wfile.flush()
             wfile.close() # Close file object, not close the socket
@@ -115,6 +115,7 @@ class SocketMessage(object):
         except Exception as e:
             _L.error('Fail to send message %s', e)
             return False
+
 
 class BaseClient(object):
     '''
@@ -145,33 +146,38 @@ class BaseClient(object):
         '''
         Try to connect to server, return whether connection successful
         '''
-        if not self.isconnected():
-            try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.connect(self.endpoint)
-                self.socket = s
-                _L.debug('BaseClient: wait for connection confirm')
+        if self.isconnected():
+            return True
+            
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect(self.endpoint)
+            self.socket = s
+            _L.debug('BaseClient: wait for connection confirm')
 
-                self.wait_connected.clear()
-                isset = self.wait_connected.wait(timeout)
-                assert(isset != None) # in python prior to 2.7 wait will return None
-                if isset:
-                    return
-                else:
-                    self.socket = None
-                    _L.error('Socket is created, but can not get connection confirm from %s, timeout after %.2f seconds', self.endpoint, timeout)
-                # only assign self.socket to connected socket
-                # so it is safe to use self.socket != None to check connection status
-                # This does not neccessarily mean connection successful, might be closed by server
-                # Unless explicitly to tell the server to accept new socket
-
-            except Exception as e:
-                _L.error('Can not connect to %s', str(self.endpoint))
-                _L.error("Error %s", e)
+            self.wait_connected.clear()
+            isset = self.wait_connected.wait(timeout)
+            assert(isset != None) # in python prior to 2.7 wait will return None
+            if isset:
+                return True
+            else:
                 self.socket = None
+                _L.error('Socket is created, but can not get connection confirm from %s, timeout after %.2f seconds', self.endpoint, timeout)
+                return False
+            # only assign self.socket to connected socket
+            # so it is safe to use self.socket != None to check connection status
+            # This does not neccessarily mean connection successful, might be closed by server
+            # Unless explicitly to tell the server to accept new socket
+
+        except Exception as e:
+            _L.error('Can not connect to %s', str(self.endpoint))
+            _L.error("Error %s", e)
+            self.socket = None
+            return False
+
 
     def isconnected(self):
-        return self.socket != None
+        return self.socket is not None
 
     def disconnect(self):
         if self.isconnected():
@@ -191,7 +197,7 @@ class BaseClient(object):
         Also check whether client is still connected
         '''
         _L.debug('BaseClient start receiving in %s', threading.current_thread().name)
-        while (1):
+        while True:
             if self.isconnected():
                 # Only this thread is allowed to read from socket, otherwise need lock to avoid competing
                 message = SocketMessage.ReceivePayload(self.socket)
@@ -201,7 +207,7 @@ class BaseClient(object):
                     self.socket = None
                     continue
 
-                if message.startswith('connected'):
+                if message.startswith(b'connected'):
                     _L.info('Got connection confirm: %s', repr(message))
                     self.wait_connected.set()
                     # self.wait_connected.clear()
@@ -224,6 +230,7 @@ class BaseClient(object):
             _L.error('Fail to send message, client is not connected')
             return False
 
+
 class Client(object):
     '''
     Client can be used to send request to a game and get response
@@ -233,9 +240,15 @@ class Client(object):
     def __raw_message_handler(self, raw_message):
         # print 'Waiting for message id %d' % self.message_id
         match = self.raw_message_regexp.match(raw_message)
+
         if match:
             [message_id, message_body] = (int(match.group(1)), match.group(2)) # TODO: handle multiline response
             message_body = raw_message[len(match.group(1))+1:]
+            # Convert to utf-8 if it's not a byte array (as is the case for images)
+            try:
+                message_body = message_body.decode('utf-8')
+            except UnicodeDecodeError:
+                pass
             # print 'Received message id %s' % message_id
             if message_id == self.message_id:
                 self.response = message_body
@@ -252,7 +265,7 @@ class Client(object):
                 _L.error('No message handler to handle message %s', raw_message)
 
     def __init__(self, endpoint, message_handler=None):
-        self.raw_message_regexp = re.compile('(\d{1,8}):(.*)')
+        self.raw_message_regexp = re.compile(b'(\d{1,8}):(.*)')
         self.message_client = BaseClient(endpoint, self.__raw_message_handler)
         self.message_handler = message_handler
         self.message_id = 0
@@ -275,17 +288,19 @@ class Client(object):
             self.queue.task_done()
 
     def request(self, message, timeout=5):
+        # docstring in numpy style
         """
         Send a request to server and wait util get a response from server or timeout.
 
         Parameters
         ----------
-        cmd : string, command to control the game
-        More info can be seen from http://unrealcv.github.io/commands.html
+        cmd : str
+            command to control the game. More info can be seen from http://docs.unrealcv.org/en/master/reference/commands.html
 
         Returns
         -------
-        response: plain text message from server
+        str
+            plain text message from server
 
         Examples
         --------
@@ -293,9 +308,12 @@ class Client(object):
         >>> client.connect()
         >>> response = client.request('vget /camera/0/view')
         """
+        if sys.version_info[0] == 3:
+          if not isinstance(message, bytes):
+            message = message.encode("utf-8")
         def do_request():
-            raw_message = '%d:%s' % (self.message_id, message)
-            _L.debug('Request: %s', raw_message)
+            raw_message = b'%d:%s' % (self.message_id, message)
+            _L.debug('Request: %s', raw_message.decode("utf-8"))
             if not self.message_client.send(raw_message):
                 return None
 
