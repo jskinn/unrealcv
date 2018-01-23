@@ -54,6 +54,10 @@ void FObjectCommandHandler::RegisterCommands()
 	Help = "Get object labels [x, y, z]";
 	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/labels"), Cmd, Help);
 
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FObjectCommandHandler::GetObjectBounds);
+	Help = "Get object bounds, [Origin.X, Origin.Y, Origin.Z, Extent.X, Extent.Y, Extent.Z]";
+	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/bounds"), Cmd, Help);
+
 	Cmd = FDispatcherDelegate::CreateStatic(GetObjectMobility);
 	Help = "Is the object static or movable?";
 	CommandDispatcher->BindCommand(TEXT("vget /object/[str]/mobility"), Cmd, Help);
@@ -295,6 +299,24 @@ FExecStatus FObjectCommandHandler::GetObjectLabels(const TArray<FString>& Args)
 			Tags += Tag.ToString();
 		}
 		return FExecStatus::OK(Tags);
+	}
+	return FExecStatus::InvalidArgument;
+}
+
+FExecStatus FObjectCommandHandler::GetObjectBounds(const TArray<FString>& Args)
+{
+	if (Args.Num() == 1)
+	{
+		FString ObjectName = Args[0];
+		AActor* Object = FObjectPainter::Get().GetObject(ObjectName);
+		if (Object == NULL)
+		{
+			return FExecStatus::Error(FString::Printf(TEXT("Can not find object %s"), *ObjectName));
+		}
+		FVector Origin;
+		FVector BoundsExtent;
+		Object->GetActorBounds(false, Origin, BoundsExtent);
+		return FExecStatus::OK(FString::Printf(TEXT("%s,%s"), *Origin.ToCompactString(), *BoundsExtent.ToCompactString()));
 	}
 	return FExecStatus::InvalidArgument;
 }

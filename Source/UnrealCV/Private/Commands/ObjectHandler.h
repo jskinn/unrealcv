@@ -36,6 +36,9 @@ public:
 	/** Get object labels */
 	FExecStatus GetObjectLabels(const TArray<FString>& Args);
 
+	/** Get the Axis-aligned bounding boxes of an object */
+	FExecStatus GetObjectBounds(const TArray<FString>& Args);
+
 	/** Show object */
 	FExecStatus ShowObject(const TArray<FString>& Args);
 
