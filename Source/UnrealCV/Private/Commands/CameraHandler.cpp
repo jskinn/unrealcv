@@ -189,6 +189,12 @@ void FCameraCommandHandler::RegisterCommands()
 	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetNpyBinaryUint8(Args, TEXT("lit"), 4); });
 	CommandDispatcher->BindCommand("vget /camera/[uint]/lit npy", Cmd, Help);
 
+	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetNpyBinaryUint8(Args, TEXT("unlit"), 4); });
+	CommandDispatcher->BindCommand("vget /camera/[uint]/unlit npy", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetNpyBinaryUint8(Args, TEXT("object_mask"), 4); });
+	CommandDispatcher->BindCommand("vget /camera/[uint]/object_mask npy", Cmd, Help);
+
 	Cmd = FDispatcherDelegate::CreateLambda([this](const TArray<FString>& Args) { return this->GetNpyBinaryFloat16(Args, TEXT("depth"), 1); });
 	CommandDispatcher->BindCommand("vget /camera/[uint]/depth npy", Cmd, Help);
 
