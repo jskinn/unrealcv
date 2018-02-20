@@ -96,18 +96,6 @@ void FViewMode::Wireframe(FEngineShowFlags& ShowFlags)
 	ShowFlags.SetWireframe(true);
 }
 
-
-void FViewMode::ObjectLabels(FEngineShowFlags& ShowFlags)
-{
-	FEngineShowFlags PreviousShowFlags(ShowFlags); // Store previous ShowFlags
-	ApplyViewMode(VMI_Lit, true, ShowFlags);
-	ShowFlags.SetLighting(false);
-	ShowFlags.SetVertexColors(true);
-	ShowFlags.SetPostProcessing(true);
-	ShowFlags.SetTonemapper(false); // This won't take effect here
-	SetVisibility(ShowFlags, PreviousShowFlags); // Store the visibility of the scene, such as folliage and landscape.
-}
-
 void FViewMode::VertexColor(FEngineShowFlags& ShowFlags)
 {
 	FEngineShowFlags PreviousShowFlags(ShowFlags); // Store previous ShowFlags
@@ -129,11 +117,14 @@ void FViewMode::VertexColor(FEngineShowFlags& ShowFlags)
 void FViewMode::Unlit(FEngineShowFlags& ShowFlags)
 {
 	ApplyViewMode(VMI_Unlit, true, ShowFlags);
-	ShowFlags.SetMaterials(true);
+	//ShowFlags.SetMaterials(false);
 	ShowFlags.SetVertexColors(false);
 	ShowFlags.SetLightFunctions(false);
+	ShowFlags.SetDynamicShadows(false);
 	ShowFlags.SetLighting(false);
+	ShowFlags.SetPostProcessing(false);
 	ShowFlags.SetAtmosphericFog(false);
+	ShowFlags.SetHMDDistortion(false);
 }
 
 void FViewMode::SetVisibility(FEngineShowFlags& Target, FEngineShowFlags& Source)

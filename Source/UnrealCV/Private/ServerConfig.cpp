@@ -22,7 +22,7 @@ FServerConfig::FServerConfig()
 	SupportedModes.Add(TEXT("unlit"));
 	SupportedModes.Add(TEXT("depth"));
 //	SupportedModes.Add(TEXT("vis_depth"));
-//	SupportedModes.Add(TEXT("plane_depth"));
+	SupportedModes.Add(TEXT("plane_depth"));
 	// SupportedModes.Add(TEXT("debug"));
 	SupportedModes.Add(TEXT("object_mask"));
 	SupportedModes.Add(TEXT("normal"));
