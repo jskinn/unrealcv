@@ -25,7 +25,7 @@ public:
 	void Reset(ULevel* InLevel);
 
 	/** Vertex paint one object with Flood-Fill */
-	bool PaintObject(AActor* Actor, const FColor& Color, bool IsColorGammaEncoded = true);
+	bool PaintObject(AActor* Actor, const FColor& Color, bool IsColorGammaEncoded = false);
 
 	/** Get a pointor to an object */
 	AActor* GetObject(FString ObjectName);
