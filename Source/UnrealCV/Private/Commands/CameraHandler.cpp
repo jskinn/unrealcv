@@ -12,6 +12,9 @@
 #include "ObjectPainter.h"
 #include "ScreenCapture.h"
 #include "Serialization.h"
+#include "AI/Navigation/NavigationSystem.h"
+#include "AI/Navigation/NavigationData.h"
+#include "AI/Navigation/NavigationPath.h"
 
 FString GetDiskFilename(FString Filename)
 {
@@ -152,6 +155,10 @@ void FCameraCommandHandler::RegisterCommands()
 	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetCameraObstacleAvoidance);
 	Help = "Get a force from nearby objects to camera [id], for obstacle avoidance within radius [radius]";
 	CommandDispatcher->BindCommand("vget /camera/[uint]/avoid [float]", Cmd, Help);
+
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetPath);
+	Help = "Get a navigation path to a random point";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/path", Cmd, Help);
 
 	Cmd = FDispatcherDelegate::CreateRaw(&FPlayerViewMode::Get(), &FPlayerViewMode::SetMode);
 	Help = "Set ViewMode to (lit, normal, depth, object_mask)";
@@ -1104,5 +1111,80 @@ FExecStatus FCameraCommandHandler::GetCameraObstacleAvoidance(const TArray<FStri
 
 FExecStatus FCameraCommandHandler::GetPath(const TArray<FString>& Args)
 {
-	return FExecStatus::Error("TODO: Find a path using the navmesh and return a sequence of waypoints.");
+	if (Args.Num() < 1)
+	{
+		return FExecStatus::Error("Number of arguments incorrect");
+	}
+
+	// Get the Camera and it's location
+	UGTCaptureComponent* Camera = FCaptureManager::Get().GetCamera(FCString::Atoi(*Args[0]));
+	if (!Camera)
+	{
+		return FExecStatus::Error(FString::Printf(TEXT("Could not find camera with id %s"), *Args[0]));
+	}
+	FVector StartLocation = Camera->GetComponentLocation();
+
+	// Make a random stream, seeded from the parameter if there is one
+	FRandomStream RandomStream;
+	if (Args.Num() >= 2)
+	{
+		RandomStream.Initialize(FCString::Atoi(*Args[1]));
+	}
+	else
+	{
+		RandomStream.GenerateNewSeed();
+	}
+
+	// Get the world and the navigation system
+	UWorld* GameWorld = FUE4CVServer::Get().GetGameWorld();
+	UNavigationSystem* NavSystem = GameWorld->GetNavigationSystem();
+
+	// Find all the possible end points to plan to, and pick one randomly
+	TArray<FVector> PossibleEnds;
+	for (TActorIterator<ATargetPoint> TargetIter(GameWorld); TargetIter; ++TargetIter)
+	{
+		FVector Location = (*TargetIter)->GetActorLocation();
+		if (FVector::DistSquared(StartLocation, Location) > 40000.0)
+		{
+			PossibleEnds.Add(Location);
+		}
+	}
+	if (PossibleEnds.Num() < 1)
+	{
+		return FExecStatus::Error("No valid destinations available");
+	}
+	FVector EndLocation = PossibleEnds[RandomStream.RandRange(0, PossibleEnds.Num())];
+
+	// Project the start and end points onto the navmesh
+	{
+		FNavLocation ProjectedLocation;
+		if (NavSystem->ProjectPointToNavigation(StartLocation, ProjectedLocation, FVector(100, 100, 3000)))
+		{
+			StartLocation = ProjectedLocation.Location;
+		}
+		if (NavSystem->ProjectPointToNavigation(EndLocation, ProjectedLocation, FVector(100, 100, 3000)))
+		{
+			EndLocation = ProjectedLocation.Location;
+		}
+	}
+
+	// Find a path from the start to the end
+	FPathFindingResult PathResult = NavSystem->FindPathSync(FPathFindingQuery(
+		Camera->GetOwner(),
+		*(NavSystem->GetMainNavData()),
+		StartLocation,
+		EndLocation
+	));
+	if (PathResult.IsSuccessful())
+	{
+		TArray<FNavPathPoint> PathPoints = PathResult.Path->GetPathPoints();
+		FString Output = "";
+		for (FNavPathPoint PathPoint : PathPoints)
+		{
+			Output += FString::Printf(TEXT("%.3f %.3f %.3f;"), PathPoint.Location.X, PathPoint.Location.Y, PathPoint.Location.Z);
+		}
+		return FExecStatus::OK(Output);
+	}
+
+	return FExecStatus::Error("Failed to find path to destination");
 }
