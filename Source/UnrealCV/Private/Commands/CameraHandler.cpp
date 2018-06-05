@@ -160,6 +160,10 @@ void FCameraCommandHandler::RegisterCommands()
 	Help = "Get a navigation path to a random point";
 	CommandDispatcher->BindCommand("vget /camera/[uint]/path", Cmd, Help);
 
+	Cmd = FDispatcherDelegate::CreateRaw(this, &FCameraCommandHandler::GetPath);
+	Help = "Get a navigation path to a specific point indexed by number";
+	CommandDispatcher->BindCommand("vget /camera/[uint]/path [uint]", Cmd, Help);
+
 	Cmd = FDispatcherDelegate::CreateRaw(&FPlayerViewMode::Get(), &FPlayerViewMode::SetMode);
 	Help = "Set ViewMode to (lit, normal, depth, object_mask)";
 	// CommandDispatcher->BindCommand("vset /viewmode lit", Cmd, Help); // Better to check the correctness at compile time
@@ -1124,22 +1128,11 @@ FExecStatus FCameraCommandHandler::GetPath(const TArray<FString>& Args)
 	}
 	FVector StartLocation = Camera->GetComponentLocation();
 
-	// Make a random stream, seeded from the parameter if there is one
-	FRandomStream RandomStream;
-	if (Args.Num() >= 2)
-	{
-		RandomStream.Initialize(FCString::Atoi(*Args[1]));
-	}
-	else
-	{
-		RandomStream.GenerateNewSeed();
-	}
-
 	// Get the world and the navigation system
 	UWorld* GameWorld = FUE4CVServer::Get().GetGameWorld();
 	UNavigationSystem* NavSystem = GameWorld->GetNavigationSystem();
 
-	// Find all the possible end points to plan to, and pick one randomly
+	// Find all the possible end points to plan to
 	TArray<FVector> PossibleEnds;
 	for (TActorIterator<ATargetPoint> TargetIter(GameWorld); TargetIter; ++TargetIter)
 	{
@@ -1153,7 +1146,17 @@ FExecStatus FCameraCommandHandler::GetPath(const TArray<FString>& Args)
 	{
 		return FExecStatus::Error("No valid destinations available");
 	}
-	FVector EndLocation = PossibleEnds[RandomStream.RandRange(0, PossibleEnds.Num())];
+
+	// Pick an end location, either one of the options specified, or randomly if unspecified
+	FVector EndLocation;
+	if (Args.Num() >= 2)
+	{
+		EndLocation = PossibleEnds[FCString::Atoi(*Args[1]) % PossibleEnds.Num()];
+	}
+	else
+	{
+		EndLocation = PossibleEnds[FMath::RandRange(0, PossibleEnds.Num())];
+	}
 
 	// Project the start and end points onto the navmesh
 	{
